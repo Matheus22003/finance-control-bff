@@ -8,9 +8,6 @@ C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl
 C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\FinanceControl.Bff.pdb
 C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Microsoft.AspNetCore.OpenApi.dll
 C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Microsoft.OpenApi.dll
-C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Swashbuckle.AspNetCore.Swagger.dll
-C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Swashbuckle.AspNetCore.SwaggerGen.dll
-C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Swashbuckle.AspNetCore.SwaggerUI.dll
 C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\obj\Debug\net10.0\FinanceControl.Bff.csproj.AssemblyReference.cache
 C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\obj\Debug\net10.0\rpswa.dswa.cache.json
 C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\obj\Debug\net10.0\FinanceControl.Bff.GeneratedMSBuildEditorConfig.editorconfig
@@ -35,3 +32,15 @@ C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl
 C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\obj\Debug\net10.0\FinanceControl.Bff.pdb
 C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\obj\Debug\net10.0\FinanceControl.Bff.genruntimeconfig.cache
 C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\obj\Debug\net10.0\ref\FinanceControl.Bff.dll
+C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Microsoft.IdentityModel.Abstractions.dll
+C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Microsoft.IdentityModel.JsonWebTokens.dll
+C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Microsoft.IdentityModel.Logging.dll
+C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Microsoft.IdentityModel.Protocols.dll
+C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Microsoft.IdentityModel.Tokens.dll
+C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Scalar.AspNetCore.dll
+C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\System.IdentityModel.Tokens.Jwt.dll
+C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Swashbuckle.AspNetCore.Swagger.dll
+C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Swashbuckle.AspNetCore.SwaggerGen.dll
+C:\Users\pingo\OneDrive\Documentos\GitHub\finance-control-bff\src\FinanceControl.Bff\bin\Debug\net10.0\Swashbuckle.AspNetCore.SwaggerUI.dll

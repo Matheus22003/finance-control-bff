@@ -7,8 +7,14 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1"/>
-        <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.1" />
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1" />
+        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.15.0" />
+
+        <!-- opcional (UI bonita, padrão atual) -->
+        <PackageReference Include="Scalar.AspNetCore" Version="2.2.3" />
+        <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+
     </ItemGroup>
 
 </Project>
