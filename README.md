@@ -14,3 +14,21 @@ Backend for Frontend responsável por autenticação, segurança e orquestraçã
 
 ## 📚 Documentação
 ➡️ https://github.com/Matheus22003/finance-control-docs
+
+## ▶️ Running (Development)
+
+### API
+- Health: `GET /health`
+
+### OpenAPI
+- Spec (JSON): `GET /openapi/v1.json`
+
+### API Docs UI (Development only)
+- Swagger UI: `/swagger`
+- Scalar UI: `/scalar`
+
+> These UIs are enabled only in Development environment.
+## 🔐 Authentication
+This service uses JWT Bearer authentication.
+- Login endpoint issues JWTs (MVP)
+- Protected endpoints require `Authorization: Bearer <token>`
