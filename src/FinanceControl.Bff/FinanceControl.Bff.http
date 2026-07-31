@@ -1,6 +1,24 @@
-@FinanceControl.Bff_HostAddress = http://localhost:5111
+@host = http://localhost:5111
+@token = paste-login-access-token-here
 
-GET {{FinanceControl.Bff_HostAddress}}/weatherforecast/
+### Public health check
+GET {{host}}/health
 Accept: application/json
 
-###
+### Public login
+POST {{host}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "demo@financecontrol.local",
+  "password": "ChangeMe123!"
+}
+
+### Protected dashboard
+GET {{host}}/api/v1/dashboard
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Protected OpenAPI document (Development only)
+GET {{host}}/openapi/v1.json
+Authorization: Bearer {{token}}

@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FinanceControl.Bff", "src\FinanceControl.Bff\FinanceControl.Bff.csproj", "{2326273E-62E2-44B9-A6F3-099C53C55C31}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FinanceControl.Bff.Tests", "tests\FinanceControl.Bff.Tests\FinanceControl.Bff.Tests.csproj", "{A8EB5C0C-18A9-4C0A-90FD-E430A248536C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{2326273E-62E2-44B9-A6F3-099C53C55C31}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2326273E-62E2-44B9-A6F3-099C53C55C31}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2326273E-62E2-44B9-A6F3-099C53C55C31}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A8EB5C0C-18A9-4C0A-90FD-E430A248536C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A8EB5C0C-18A9-4C0A-90FD-E430A248536C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A8EB5C0C-18A9-4C0A-90FD-E430A248536C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A8EB5C0C-18A9-4C0A-90FD-E430A248536C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

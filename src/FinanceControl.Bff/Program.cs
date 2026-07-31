@@ -1,122 +1,163 @@
+using System.Diagnostics;
+using System.Text;
+using FinanceControl.Bff.Auth;
+using FinanceControl.Bff.Endpoints;
+using FinanceControl.Bff.OpenApi;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Scalar.AspNetCore;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ===== Auth (JWT) =====
-// Exemplo: lendo config do appsettings.json (Jwt:Issuer, Jwt:Audience, Jwt:Key)
-var jwtIssuer = builder.Configuration["Jwt:Issuer"];
-var jwtAudience = builder.Configuration["Jwt:Audience"];
-var jwtKey = builder.Configuration["Jwt:Key"];
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = context =>
+    {
+        context.ProblemDetails.Instance = context.HttpContext.Request.Path;
+        context.ProblemDetails.Extensions["traceId"] =
+            Activity.Current?.Id ?? context.HttpContext.TraceIdentifier;
+    };
+});
+
+builder.Services
+    .AddOptions<JwtOptions>()
+    .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(options => Encoding.UTF8.GetByteCount(options.Key) >= 32,
+        "Jwt:Key must contain at least 32 bytes.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<DemoUserOptions>()
+    .Bind(builder.Configuration.GetSection(DemoUserOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddJwtBearer();
+
+builder.Services
+    .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<Microsoft.Extensions.Options.IOptions<JwtOptions>>((options, jwtOptionsAccessor) =>
     {
+        var jwtOptions = jwtOptionsAccessor.Value;
+        options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = jwtIssuer,
-
+            ValidIssuer = jwtOptions.Issuer,
             ValidateAudience = true,
-            ValidAudience = jwtAudience,
-
+            ValidAudience = jwtOptions.Audience,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!)),
-
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key)),
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(1)
+            ClockSkew = TimeSpan.FromMinutes(1),
+            NameClaimType = "email"
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnChallenge = async context =>
+            {
+                context.HandleResponse();
+                await JwtProblemDetailsWriter.WriteAsync(
+                    context.HttpContext,
+                    StatusCodes.Status401Unauthorized,
+                    "Authentication required",
+                    "A valid Bearer token is required to access this resource.");
+            },
+            OnForbidden = context => JwtProblemDetailsWriter.WriteAsync(
+                context.HttpContext,
+                StatusCodes.Status403Forbidden,
+                "Access forbidden",
+                "The authenticated user is not allowed to access this resource.")
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorizationBuilder()
+    .SetFallbackPolicy(new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build());
 
-// ===== OpenAPI (nativo .NET 10) =====
+builder.Services.AddSingleton<TokenService>();
+builder.Services.AddHealthChecks();
+
 builder.Services.AddOpenApi(options =>
 {
     options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_1;
-
-    // Coloca Info + esquema Bearer e aplica requirement em todas as operações
     options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
-    options.AddDocumentTransformer((document, context, ct) =>
+    options.AddOperationTransformer<BearerSecurityRequirementTransformer>();
+    options.AddDocumentTransformer((document, _, _) =>
     {
-        document.Info = new()
+        document.Info = new OpenApiInfo
         {
-            Title = "Finance Control — BFF",
+            Title = "Finance Control - BFF",
             Version = "v1",
-            Description = "Backend for Frontend responsável por autenticação, segurança e orquestração."
+            Description = "Authentication and aggregation entry point for Finance Control clients."
         };
 
         return Task.CompletedTask;
     });
 });
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
+
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+app.UseForwardedHeaders();
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    // OpenAPI JSON: garante /openapi/v1.json
-    app.MapOpenApi();
-
-    // UI: /scalar
-    app.MapScalarApiReference();
-
-    // UI: /swagger (Swagger UI)
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/openapi/v1.json", "FinanceControl.Bff v1");
-        c.RoutePrefix = "swagger";
-    });
+    app.UseHttpsRedirection();
 }
-
-app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Exemplo endpoint
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
+if (app.Environment.IsDevelopment())
+{
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.StartsWithSegments("/swagger") &&
+            context.User.Identity?.IsAuthenticated != true)
+        {
+            await context.ChallengeAsync();
+            return;
+        }
+
+        await next();
+    });
+
+    app.MapOpenApi().RequireAuthorization();
+    app.MapScalarApiReference().RequireAuthorization();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "Finance Control BFF v1");
+        options.RoutePrefix = "swagger";
+    });
+}
+
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = HealthResponseWriter.WriteAsync
+})
     .AllowAnonymous();
+
+var apiV1 = app.MapGroup("/api/v1");
+apiV1.MapAuthEndpoints();
+apiV1.MapDashboardEndpoints();
 
 app.Run();
 
-internal sealed class BearerSecuritySchemeTransformer(IAuthenticationSchemeProvider authenticationSchemeProvider)
-    : IOpenApiDocumentTransformer
-{
-    public async Task TransformAsync(OpenApiDocument document, OpenApiDocumentTransformerContext context,
-        CancellationToken cancellationToken)
-    {
-        var schemes = await authenticationSchemeProvider.GetAllSchemesAsync();
-        var hasBearer = schemes.Any(s => s.Name == JwtBearerDefaults.AuthenticationScheme || s.Name == "Bearer");
-
-        if (!hasBearer) return;
-
-        document.Components ??= new OpenApiComponents();
-        document.Components.SecuritySchemes = new Dictionary<string, IOpenApiSecurityScheme>
-        {
-            ["Bearer"] = new OpenApiSecurityScheme
-            {
-                Type = SecuritySchemeType.Http,
-                Scheme = "bearer",
-                In = ParameterLocation.Header,
-                BearerFormat = "JWT",
-                Description = "Enter: Bearer {your JWT token}"
-            }
-        };
-
-        // Aplica Bearer como requirement em todas as operações
-        foreach (var operation in document.Paths.Values.SelectMany(p => p.Operations))
-        {
-            operation.Value.Security ??= [];
-            operation.Value.Security.Add(new OpenApiSecurityRequirement
-            {
-                [new OpenApiSecuritySchemeReference("Bearer", document)] = []
-            });
-        }
-    }
-}
+public partial class Program;
