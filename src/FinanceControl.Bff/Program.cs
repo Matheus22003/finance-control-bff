@@ -1,17 +1,30 @@
 using System.Diagnostics;
 using System.Text;
 using FinanceControl.Bff.Auth;
+using FinanceControl.Bff.Ai;
+using FinanceControl.Bff.Clients;
+using FinanceControl.Bff.Clients.Debt;
+using FinanceControl.Bff.Clients.Finance;
 using FinanceControl.Bff.Endpoints;
+using FinanceControl.Bff.Email;
+using FinanceControl.Bff.Errors;
 using FinanceControl.Bff.OpenApi;
+using FinanceControl.Bff.Notifications;
+using FinanceControl.Bff.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.OpenApi;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Scalar.AspNetCore;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +37,57 @@ builder.Services.AddProblemDetails(options =>
             Activity.Current?.Id ?? context.HttpContext.TraceIdentifier;
     };
 });
+builder.Services.AddExceptionHandler<FinanceServiceExceptionHandler>();
+builder.Services.AddExceptionHandler<DebtServiceExceptionHandler>();
+builder.Services.AddExceptionHandler<AiProviderExceptionHandler>();
+
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    var bffDatabaseConnection = builder.Configuration.GetConnectionString("BffDatabase")
+        ?? throw new InvalidOperationException("ConnectionStrings:BffDatabase must be configured.");
+    builder.Services.AddDbContext<BffDbContext>(options => options.UseNpgsql(bffDatabaseConnection));
+}
+builder.Services
+    .AddIdentityCore<ApplicationUser>(options =>
+    {
+        options.User.RequireUniqueEmail = true;
+        options.Password.RequiredLength = 8;
+        options.Password.RequireDigit = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireNonAlphanumeric = true;
+    })
+    .AddRoles<Microsoft.AspNetCore.Identity.IdentityRole<Guid>>()
+    .AddEntityFrameworkStores<BffDbContext>()
+    .AddTokenProvider<Microsoft.AspNetCore.Identity.DataProtectorTokenProvider<ApplicationUser>>(
+        Microsoft.AspNetCore.Identity.TokenOptions.DefaultProvider);
+builder.Services.AddScoped<BffDatabaseInitializer>();
+
+builder.Services.Configure<Microsoft.AspNetCore.Identity.DataProtectionTokenProviderOptions>(options =>
+{
+    options.TokenLifespan = TimeSpan.FromHours(2);
+});
+
+var dataProtection = builder.Services.AddDataProtection()
+    .SetApplicationName("FinanceControl.Bff");
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    Directory.CreateDirectory(dataProtectionKeysPath);
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
+
+builder.Services
+    .AddOptions<EmailOptions>()
+    .Bind(builder.Configuration.GetSection(EmailOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(options =>
+        (string.IsNullOrWhiteSpace(options.UserName) && string.IsNullOrWhiteSpace(options.Password)) ||
+        (!string.IsNullOrWhiteSpace(options.UserName) && !string.IsNullOrWhiteSpace(options.Password)),
+        "Email credentials must both be empty or both be configured.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<EmailLinkFactory>();
+builder.Services.AddTransient<IApplicationEmailSender, SmtpEmailSender>();
 
 builder.Services
     .AddOptions<JwtOptions>()
@@ -34,9 +98,61 @@ builder.Services
     .ValidateOnStart();
 
 builder.Services
+    .AddOptions<AuthSessionOptions>()
+    .Bind(builder.Configuration.GetSection(AuthSessionOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services
     .AddOptions<DemoUserOptions>()
     .Bind(builder.Configuration.GetSection(DemoUserOptions.SectionName))
     .ValidateDataAnnotations()
+    .Validate(options =>
+        (string.IsNullOrWhiteSpace(options.FriendEmail) &&
+         string.IsNullOrWhiteSpace(options.FriendPassword)) ||
+        (!string.IsNullOrWhiteSpace(options.FriendEmail) &&
+         !string.IsNullOrWhiteSpace(options.FriendPassword) &&
+         options.FriendPassword.Length >= 8),
+        "DemoUser friend credentials must both be empty or contain a valid email and password.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<FinanceServiceOptions>()
+    .Bind(builder.Configuration.GetSection(FinanceServiceOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(options =>
+        Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var uri) &&
+        (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps),
+        "FinanceService:BaseUrl must be an absolute HTTP or HTTPS URL.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<DebtServiceOptions>()
+    .Bind(builder.Configuration.GetSection(DebtServiceOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(options =>
+        Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var uri) &&
+        (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps),
+        "DebtService:BaseUrl must be an absolute HTTP or HTTPS URL.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<AiProviderOptions>()
+    .Bind(builder.Configuration.GetSection(AiProviderOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(options =>
+        options.Provider.Equals(AiProviderOptions.MockProvider, StringComparison.OrdinalIgnoreCase) ||
+        options.Provider.Equals(
+            AiProviderOptions.OpenAiCompatibleProvider,
+            StringComparison.OrdinalIgnoreCase),
+        "Ai:Provider must be Mock or OpenAiCompatible.")
+    .Validate(options =>
+        !options.UsesExternalProvider ||
+        (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var uri) &&
+         uri.Scheme == Uri.UriSchemeHttps &&
+         !string.IsNullOrWhiteSpace(options.ApiKey) &&
+         !string.IsNullOrWhiteSpace(options.Model)),
+        "External AI requires an HTTPS Ai:BaseUrl, Ai:ApiKey and Ai:Model.")
     .ValidateOnStart();
 
 builder.Services
@@ -63,6 +179,18 @@ builder.Services
         };
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrWhiteSpace(accessToken) &&
+                    context.HttpContext.Request.Path.StartsWithSegments(
+                        "/api/v1/notifications/hub"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            },
             OnChallenge = async context =>
             {
                 context.HandleResponse();
@@ -85,8 +213,115 @@ builder.Services.AddAuthorizationBuilder()
         .RequireAuthenticatedUser()
         .Build());
 
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, NotificationUserIdProvider>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<BudgetAlertService>();
+builder.Services.AddScoped<AiAnalysisService>();
+builder.Services.AddScoped<AiQuestionService>();
+builder.Services.AddSingleton<MockAiAnalysisProvider>();
+builder.Services
+    .AddHttpClient<OpenAiCompatibleAnalysisProvider>((serviceProvider, client) =>
+    {
+        var options = serviceProvider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptions<AiProviderOptions>>()
+            .Value;
+        var baseUrl = options.BaseUrl.EndsWith("/", StringComparison.Ordinal)
+            ? options.BaseUrl
+            : $"{options.BaseUrl}/";
+        client.BaseAddress = new Uri(baseUrl);
+        client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+    });
+builder.Services.AddTransient<IAiAnalysisProvider>(serviceProvider =>
+{
+    var options = serviceProvider
+        .GetRequiredService<Microsoft.Extensions.Options.IOptions<AiProviderOptions>>()
+        .Value;
+    return options.UsesExternalProvider
+        ? serviceProvider.GetRequiredService<OpenAiCompatibleAnalysisProvider>()
+        : serviceProvider.GetRequiredService<MockAiAnalysisProvider>();
+});
 builder.Services.AddSingleton<TokenService>();
+builder.Services.AddSingleton<RefreshTokenService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<AuthenticatedUserHandler>();
+builder.Services
+    .AddHttpClient<IFinanceServiceClient, FinanceServiceClient>((serviceProvider, client) =>
+    {
+        var options = serviceProvider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptions<FinanceServiceOptions>>()
+            .Value;
+        client.BaseAddress = new Uri(options.BaseUrl);
+        client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+    })
+    .AddHttpMessageHandler<AuthenticatedUserHandler>();
+builder.Services
+    .AddHttpClient<IDebtServiceClient, DebtServiceClient>((serviceProvider, client) =>
+    {
+        var options = serviceProvider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptions<DebtServiceOptions>>()
+            .Value;
+        client.BaseAddress = new Uri(options.BaseUrl);
+        client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+    })
+    .AddHttpMessageHandler<AuthenticatedUserHandler>();
 builder.Services.AddHealthChecks();
+builder.Services.AddRateLimiter(options =>
+{
+    var sensitivePermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 10;
+    var refreshPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 30;
+    var aiAnalysisPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 5;
+    var aiQuestionPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 15;
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth-sensitive", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = sensitivePermitLimit,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
+    options.AddPolicy("auth-refresh", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = refreshPermitLimit,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
+    options.AddPolicy("ai-analysis", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.User.FindFirst("sub")?.Value ??
+        context.Connection.RemoteIpAddress?.ToString() ??
+        "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = aiAnalysisPermitLimit,
+            Window = TimeSpan.FromMinutes(5),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
+    options.AddPolicy("ai-question", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.User.FindFirst("sub")?.Value ??
+        context.Connection.RemoteIpAddress?.ToString() ??
+        "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = aiQuestionPermitLimit,
+            Window = TimeSpan.FromMinutes(5),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
+    options.OnRejected = async (context, _) =>
+    {
+        await Results.Problem(statusCode: StatusCodes.Status429TooManyRequests,
+            title: "Too many requests",
+            detail: "Too many requests were made. Try again shortly.")
+            .ExecuteAsync(context.HttpContext);
+    };
+});
 
 builder.Services.AddOpenApi(options =>
 {
@@ -113,6 +348,11 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 var app = builder.Build();
 
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    await scope.ServiceProvider.GetRequiredService<BffDatabaseInitializer>().InitializeAsync();
+}
+
 app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
@@ -123,6 +363,7 @@ if (!app.Environment.IsEnvironment("Testing"))
 }
 
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
@@ -157,6 +398,13 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 var apiV1 = app.MapGroup("/api/v1");
 apiV1.MapAuthEndpoints();
 apiV1.MapDashboardEndpoints();
+apiV1.MapAiEndpoints();
+apiV1.MapFinanceEndpoints();
+apiV1.MapDebtEndpoints();
+apiV1.MapUserEndpoints();
+apiV1.MapSocialEndpoints();
+apiV1.MapNotificationEndpoints();
+apiV1.MapHub<NotificationHub>("/notifications/hub").RequireAuthorization();
 
 app.Run();
 

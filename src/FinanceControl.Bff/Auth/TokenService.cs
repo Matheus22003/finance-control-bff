@@ -10,7 +10,7 @@ public sealed class TokenService(IOptions<JwtOptions> options)
 {
     private readonly JwtOptions _jwt = options.Value;
 
-    public LoginToken CreateToken(Guid userId, string email)
+    public LoginToken CreateToken(Guid userId, string email, Guid sessionId)
     {
         var issuedAt = DateTimeOffset.UtcNow;
         var expiresAt = issuedAt.AddMinutes(_jwt.ExpiresMinutes);
@@ -18,6 +18,7 @@ public sealed class TokenService(IOptions<JwtOptions> options)
         {
             new(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new(JwtRegisteredClaimNames.Email, email),
+            new(JwtRegisteredClaimNames.Sid, sessionId.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(JwtRegisteredClaimNames.Iat, issuedAt.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
         };
