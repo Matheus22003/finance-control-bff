@@ -142,6 +142,13 @@ Para ambientes diferentes de Development, informe `Jwt__Key`, `DemoUser__Email`,
 dotnet test FinanceControl.Bff.sln --configuration Release --locked-mode
 ```
 
+## Integração contínua
+
+O workflow `.github/workflows/ci.yml` é executado em pushes e pull requests para
+`main` e `develop`, além de permitir execução manual. A pipeline restaura as
+dependências pelo lock file, executa os testes em `Release` e valida a imagem
+Docker do BFF.
+
 ## Docker
 
 Quando o Finance Service e o Debt Service estiverem publicados no host nas portas `8081` e `8082`:
