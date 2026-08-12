@@ -1,6 +1,344 @@
-@FinanceControl.Bff_HostAddress = http://localhost:5111
+@host = http://localhost:5111
+@token = paste-login-access-token-here
+@incomeId = 00000000-0000-0000-0000-000000000000
+@expenseId = 00000000-0000-0000-0000-000000000000
+@personId = 00000000-0000-0000-0000-000000000000
+@payerId = 00000000-0000-0000-0000-000000000000
+@participantId = 00000000-0000-0000-0000-000000000000
+@debtId = 00000000-0000-0000-0000-000000000000
+@shareId = 00000000-0000-0000-0000-000000000000
+@paymentId = 00000000-0000-0000-0000-000000000000
+@goalId = 00000000-0000-0000-0000-000000000000
+@contributionId = 00000000-0000-0000-0000-000000000000
 
-GET {{FinanceControl.Bff_HostAddress}}/weatherforecast/
+### Public health check
+GET {{host}}/health
 Accept: application/json
 
-###
+### Public login
+POST {{host}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "demo@financecontrol.local",
+  "password": "ChangeMe123!"
+}
+
+### Protected dashboard
+GET {{host}}/api/v1/dashboard
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Finance summary for current month
+GET {{host}}/api/v1/finance/summary
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Finance summary for a selected month
+GET {{host}}/api/v1/finance/summary?month=2026-07
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Finance categories
+GET {{host}}/api/v1/finance/categories
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### List incomes
+GET {{host}}/api/v1/finance/incomes
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Get income
+GET {{host}}/api/v1/finance/incomes/{{incomeId}}
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Create income
+POST {{host}}/api/v1/finance/incomes
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "description": "Salário",
+  "amount": 5000.00,
+  "transactionDate": "2026-07-31"
+}
+
+### Update income
+PUT {{host}}/api/v1/finance/incomes/{{incomeId}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "description": "Salário atualizado",
+  "amount": 5100.00,
+  "transactionDate": "2026-07-31"
+}
+
+### Delete income
+DELETE {{host}}/api/v1/finance/incomes/{{incomeId}}
+Authorization: Bearer {{token}}
+
+### List expenses
+GET {{host}}/api/v1/finance/expenses
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Get expense
+GET {{host}}/api/v1/finance/expenses/{{expenseId}}
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Create expense
+POST {{host}}/api/v1/finance/expenses
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "description": "Mercado",
+  "amount": 175.90,
+  "transactionDate": "2026-07-31",
+  "category": "FOOD"
+}
+
+### Update expense
+PUT {{host}}/api/v1/finance/expenses/{{expenseId}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "description": "Mercado atualizado",
+  "amount": 180.00,
+  "transactionDate": "2026-07-31",
+  "category": "FOOD"
+}
+
+### Delete expense
+DELETE {{host}}/api/v1/finance/expenses/{{expenseId}}
+Authorization: Bearer {{token}}
+
+### List financial goal contributions
+GET {{host}}/api/v1/finance/goals/{{goalId}}/contributions
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Register financial goal contribution
+POST {{host}}/api/v1/finance/goals/{{goalId}}/contributions
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "amount": 500.00,
+  "contributionDate": "2026-08-11",
+  "note": "Economia do mês",
+  "sourceIncomeId": "{{incomeId}}"
+}
+
+### Delete financial goal contribution
+DELETE {{host}}/api/v1/finance/goals/{{goalId}}/contributions/{{contributionId}}
+Authorization: Bearer {{token}}
+
+### List people
+GET {{host}}/api/v1/people
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Get person
+GET {{host}}/api/v1/people/{{personId}}
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Create person
+POST {{host}}/api/v1/people
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "Ana",
+  "email": "ana@example.com",
+  "isCurrentUser": false
+}
+
+### Update person
+PUT {{host}}/api/v1/people/{{personId}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "Ana Souza",
+  "email": "ana@example.com",
+  "isCurrentUser": false
+}
+
+### Delete person
+DELETE {{host}}/api/v1/people/{{personId}}
+Authorization: Bearer {{token}}
+
+### Debt summary
+GET {{host}}/api/v1/debts/summary
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Notifications
+GET {{host}}/api/v1/notifications?unreadOnly=false&limit=30
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Synchronize budget and goal alerts
+POST {{host}}/api/v1/notifications/sync
+Authorization: Bearer {{token}}
+
+### Unread notification count
+GET {{host}}/api/v1/notifications/unread-count
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Mark one notification as read
+POST {{host}}/api/v1/notifications/{{notificationId}}/read
+Authorization: Bearer {{token}}
+
+### Mark all notifications as read
+POST {{host}}/api/v1/notifications/read-all
+Authorization: Bearer {{token}}
+
+### Simplified settlements
+GET {{host}}/api/v1/debts/settlements/simplified
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Active simplified settlement transfers
+GET {{host}}/api/v1/debts/settlements/simplified/transfers
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Simplified transfers awaiting my confirmation
+GET {{host}}/api/v1/debts/settlements/simplified/transfers/pending-confirmation
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Record a simplified settlement transfer
+POST {{host}}/api/v1/debts/settlements/simplified/transfers
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "groupId": null,
+  "fromPersonId": "{{payerId}}",
+  "toPersonId": "{{participantId}}",
+  "amount": 50.00,
+  "paymentDate": "2026-08-03",
+  "note": "PIX"
+}
+
+> {% client.global.set("settlementTransferId", response.body.id); %}
+
+### Confirm a simplified settlement transfer
+POST {{host}}/api/v1/debts/settlements/simplified/transfers/{{settlementTransferId}}/confirm
+Authorization: Bearer {{token}}
+
+### Reject a simplified settlement transfer
+POST {{host}}/api/v1/debts/settlements/simplified/transfers/{{settlementTransferId}}/reject
+Authorization: Bearer {{token}}
+
+### List debts
+GET {{host}}/api/v1/debts
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Get debt
+GET {{host}}/api/v1/debts/{{debtId}}
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Create debt
+POST {{host}}/api/v1/debts
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "description": "Jantar",
+  "totalAmount": 120.00,
+  "paidByPersonId": "{{payerId}}",
+  "category": "FOOD",
+  "dueDate": "2026-08-10",
+  "shares": [
+    {
+      "personId": "{{participantId}}",
+      "amount": 120.00
+    }
+  ]
+}
+
+### Update debt
+PUT {{host}}/api/v1/debts/{{debtId}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "description": "Jantar atualizado",
+  "category": "FOOD",
+  "dueDate": "2026-08-15"
+}
+
+### Delete debt
+DELETE {{host}}/api/v1/debts/{{debtId}}
+Authorization: Bearer {{token}}
+
+### List debt payments
+GET {{host}}/api/v1/debts/{{debtId}}/payments
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Create debt payment
+POST {{host}}/api/v1/debts/{{debtId}}/shares/{{shareId}}/payments
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "amount": 50.00,
+  "paymentDate": "2026-07-31",
+  "note": "Primeira parcela"
+}
+
+### Update debt payment
+PUT {{host}}/api/v1/debts/{{debtId}}/payments/{{paymentId}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "amount": 60.00,
+  "paymentDate": "2026-07-31",
+  "note": "Valor corrigido"
+}
+
+### Delete debt payment
+DELETE {{host}}/api/v1/debts/{{debtId}}/payments/{{paymentId}}
+Authorization: Bearer {{token}}
+
+### Debt history
+GET {{host}}/api/v1/debts/{{debtId}}/history
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Protected OpenAPI document (Development only)
+GET {{host}}/openapi/v1.json
+Authorization: Bearer {{token}}
+
+### Generate the automatic financial analysis
+POST {{host}}/api/v1/ai/analyze
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "month": "2026-08"
+}
+
+### Ask a question about expenses and debts
+POST {{host}}/api/v1/ai/ask
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Quem ainda me deve dinheiro pela comida?"
+}

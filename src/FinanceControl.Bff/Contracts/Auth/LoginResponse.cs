@@ -1,3 +1,7 @@
-﻿namespace FinanceControl.Bff.Contracts.Auth;
+namespace FinanceControl.Bff.Contracts.Auth;
 
-public record LoginResponse(string Token, DateTime ExpiresAt);
+public sealed record LoginResponse(
+    string AccessToken,
+    string TokenType,
+    DateTimeOffset ExpiresAt,
+    AuthUserResponse User);

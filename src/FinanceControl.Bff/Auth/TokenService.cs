@@ -1,4 +1,4 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Options;
@@ -10,31 +10,31 @@ public sealed class TokenService(IOptions<JwtOptions> options)
 {
     private readonly JwtOptions _jwt = options.Value;
 
-    public (string token, DateTime expiresAt) CreateToken(Guid userId, string email)
+    public LoginToken CreateToken(Guid userId, string email, Guid sessionId)
     {
-        var now = DateTime.UtcNow;
-        var expiresAt = now.AddMinutes(_jwt.ExpiresMinutes);
-
-        var claims = new List<Claim>
+        var issuedAt = DateTimeOffset.UtcNow;
+        var expiresAt = issuedAt.AddMinutes(_jwt.ExpiresMinutes);
+        var claims = new Claim[]
         {
             new(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new(JwtRegisteredClaimNames.Email, email),
-            new(JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(now).ToString(), ClaimValueTypes.Integer64)
+            new(JwtRegisteredClaimNames.Sid, sessionId.ToString()),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new(JwtRegisteredClaimNames.Iat, issuedAt.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Key));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
+        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Key));
+        var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
         var token = new JwtSecurityToken(
             issuer: _jwt.Issuer,
             audience: _jwt.Audience,
             claims: claims,
-            notBefore: now,
-            expires: expiresAt,
-            signingCredentials: creds
-        );
+            notBefore: issuedAt.UtcDateTime,
+            expires: expiresAt.UtcDateTime,
+            signingCredentials: credentials);
 
-        var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
-        return (tokenString, expiresAt);
+        return new LoginToken(new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
     }
 }
+
+public sealed record LoginToken(string Value, DateTimeOffset ExpiresAt);
