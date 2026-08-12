@@ -33,10 +33,10 @@ Todos os demais endpoints exigem JWT.
 | Grupo | Caminhos |
 |---|---|
 | Dashboard | `GET /api/v1/dashboard` |
-| Finance | resumo, categorias, filtros, CRUD de receitas/despesas, recorrências e orçamento mensal em `/api/v1/finance` |
+| Finance | resumo, tendência, projeção de caixa, metas com aportes manuais ou vinculados ao saldo disponível de receitas, detalhamento da distribuição de cada receita, categorias padrão e personalizadas, filtros, CRUD de receitas/despesas, recorrências e orçamento mensal em `/api/v1/finance` |
 | Pessoas | CRUD em `/api/v1/people` |
 | Dívidas | resumo, CRUD, pagamentos, histórico e registro/confirmação do plano simplificado em `/api/v1/debts` |
-| Notificações | caixa persistente, leitura e contagem em `/api/v1/notifications`; hub em `/api/v1/notifications/hub` |
+| Notificações | caixa persistente, sincronização de alertas, leitura e contagem em `/api/v1/notifications`; hub em `/api/v1/notifications/hub` |
 | Segurança | troca de senha em `POST /api/v1/auth/change-password` e gestão em `/api/v1/auth/sessions` |
 
 Na área de conta, `/api/v1/users/me` oferece perfil, preferências, avatar, troca de e-mail, exportação e exclusão.
@@ -49,9 +49,11 @@ Em `Development`, a especificação `/openapi/v1.json`, o Scalar em `/scalar/v1`
 
 ## Notificações em tempo real
 
-O BFF persiste notificações direcionadas aos usuários envolvidos em amizades, grupos, dívidas, pagamentos e liquidações simplificadas. Depois da persistência, o hub SignalR envia `notificationReceived` apenas às conexões autenticadas daquele usuário.
+O BFF persiste notificações direcionadas aos usuários envolvidos em amizades, grupos, dívidas, pagamentos e liquidações simplificadas. Alterações de despesa ou orçamento geram alertas ao cruzar 80% ou 100% do limite mensal da categoria. Metas geram alertas quando são concluídas, ficam a até 30 dias do prazo ou vencem sem atingir o valor esperado. Depois da persistência, o hub SignalR envia `notificationReceived` apenas às conexões autenticadas daquele usuário.
 
-O evento em tempo real é um aviso de mudança; os clientes sempre consultam novamente os endpoints REST protegidos para obter o estado oficial. O token do hub é aceito pela query string somente no caminho restrito `/api/v1/notifications/hub`, conforme a limitação dos transportes WebSocket/SSE no navegador.
+`POST /api/v1/notifications/sync` reavalia orçamento e metas no estado atual. Cada regra usa uma chave persistente de deduplicação, portanto abrir o site, reconectar o SignalR ou colocar um futuro aplicativo em primeiro plano não repete um alerta já emitido para o mesmo evento.
+
+O evento em tempo real é um aviso de mudança; os clientes sempre consultam novamente os endpoints REST protegidos para obter o estado oficial. Essa combinação entre sincronização REST e entrega SignalR pode ser reutilizada por clientes web e mobile. O token do hub é aceito pela query string somente no caminho restrito `/api/v1/notifications/hub`, conforme a limitação dos transportes WebSocket/SSE no navegador.
 
 ## Integrações com Finance e Debt
 
@@ -91,14 +93,14 @@ Ai__ApplicationName=Finance Control
 
 O provedor externo recebe apenas agregados sanitizados. Nas perguntas detalhadas, pessoas, grupos, dívidas e descrições de lançamentos são convertidos em aliases estáveis para aquela requisição. O BFF restaura os nomes somente depois de receber a resposta, sem expor o mapa de aliases ao Groq. As métricas mostradas no resultado continuam vindo dos cálculos determinísticos dos serviços, nunca do texto gerado pelo modelo. Respostas inválidas retornam ProblemDetails `502`, indisponibilidade ou limite externo retornam `503`, e timeout retorna `504`.
 
-Perguntas factuais sobre quem deve, origem dos valores a pagar e totais de despesas são respondidas deterministicamente pelo BFF. O modelo é usado somente nas perguntas abertas e explicações, evitando inversões entre credor e devedor ou valores inventados.
+Perguntas factuais sobre quem deve, origem dos valores a pagar, totais de despesas, uso do orçamento e viabilidade das metas são respondidas deterministicamente pelo BFF. O contexto sanitizado da IA inclui limites por categoria, tendência, metas com aliases e projeção dos próximos seis meses. O modelo é usado somente nas perguntas abertas e explicações, evitando inversões entre credor e devedor, tratar projeções como garantias ou inventar valores.
 
 O BFF é a única API consumida pelo frontend. Internamente, ele chama:
 
 - Finance Service em `/api/v1/finance/*`;
 - Debt Service em `/api/v1/people/*` e `/api/v1/debts/*`.
 
-O dashboard consulta os resumos dos dois serviços em paralelo. As demais rotas funcionam como fachadas tipadas e devolvem contratos próprios do BFF.
+O dashboard consulta em paralelo resumo, tendência, orçamento, metas e projeção do Finance Service e o resumo do Debt Service. As demais rotas funcionam como fachadas tipadas e devolvem contratos próprios do BFF.
 
 Em desenvolvimento, o BFF espera o Finance Service em `http://localhost:8081` e o Debt Service em `http://localhost:8082`.
 

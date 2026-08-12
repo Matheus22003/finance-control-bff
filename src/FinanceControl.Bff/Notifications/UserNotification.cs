@@ -12,7 +12,8 @@ public sealed class UserNotification
         string title,
         string message,
         string? route,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        string? deduplicationKey = null)
     {
         Id = Guid.NewGuid();
         UserId = userId;
@@ -20,6 +21,9 @@ public sealed class UserNotification
         Title = title.Trim();
         Message = message.Trim();
         Route = string.IsNullOrWhiteSpace(route) ? null : route.Trim();
+        DeduplicationKey = string.IsNullOrWhiteSpace(deduplicationKey)
+            ? null
+            : deduplicationKey.Trim();
         CreatedAt = createdAt;
     }
 
@@ -34,6 +38,8 @@ public sealed class UserNotification
     public string Message { get; private set; } = string.Empty;
 
     public string? Route { get; private set; }
+
+    public string? DeduplicationKey { get; private set; }
 
     public bool IsRead { get; private set; }
 

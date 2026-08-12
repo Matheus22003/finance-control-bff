@@ -22,5 +22,8 @@ public enum NotificationType
     SettlementConfirmed,
     SettlementRejected,
     BudgetWarning,
-    BudgetExceeded
+    BudgetExceeded,
+    GoalDueSoon,
+    GoalOverdue,
+    GoalCompleted
 }

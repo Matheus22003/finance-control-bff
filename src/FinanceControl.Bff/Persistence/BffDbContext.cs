@@ -64,12 +64,20 @@ public sealed class BffDbContext(DbContextOptions<BffDbContext> options)
             notification.Property(candidate => candidate.Title).HasMaxLength(120).IsRequired();
             notification.Property(candidate => candidate.Message).HasMaxLength(500).IsRequired();
             notification.Property(candidate => candidate.Route).HasMaxLength(200);
+            notification.Property(candidate => candidate.DeduplicationKey).HasMaxLength(200);
             notification.HasIndex(candidate => new
             {
                 candidate.UserId,
                 candidate.IsRead,
                 candidate.CreatedAt
             });
+            notification.HasIndex(candidate => new
+            {
+                candidate.UserId,
+                candidate.DeduplicationKey
+            })
+                .IsUnique()
+                .HasFilter("\"DeduplicationKey\" IS NOT NULL");
             notification.HasOne<ApplicationUser>()
                 .WithMany()
                 .HasForeignKey(candidate => candidate.UserId)

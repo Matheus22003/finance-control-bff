@@ -21,8 +21,22 @@ internal abstract class FinanceServiceClientStub : IFinanceServiceClient
             months,
             []));
 
-    public virtual Task<IReadOnlyList<string>> GetCategoriesAsync(
+    public virtual Task<IReadOnlyList<FinanceCategoryResponse>> GetCategoriesAsync(
         CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public virtual Task<FinanceCategoryResponse> CreateCategoryAsync(
+        FinanceCategoryRequest request,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public virtual Task<FinanceCategoryResponse> UpdateCategoryAsync(
+        long id,
+        FinanceCategoryRequest request,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public virtual Task DeleteCategoryAsync(long id, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
     public virtual Task<IReadOnlyList<IncomeResponse>> GetIncomesAsync(
@@ -36,6 +50,11 @@ internal abstract class FinanceServiceClientStub : IFinanceServiceClient
         GetIncomesAsync(cancellationToken);
 
     public virtual Task<IncomeResponse> GetIncomeAsync(
+        Guid id,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public virtual Task<IncomeGoalAllocationResponse> GetIncomeGoalAllocationsAsync(
         Guid id,
         CancellationToken cancellationToken) =>
         throw new NotSupportedException();
@@ -124,4 +143,57 @@ internal abstract class FinanceServiceClientStub : IFinanceServiceClient
         string category,
         CancellationToken cancellationToken) =>
         throw new NotSupportedException();
+
+    public virtual Task<IReadOnlyList<FinancialGoalResponse>> GetFinancialGoalsAsync(
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<FinancialGoalResponse>>([]);
+
+    public virtual Task<FinancialGoalResponse> GetFinancialGoalAsync(
+        Guid id,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public virtual Task<FinancialGoalResponse> CreateFinancialGoalAsync(
+        FinancialGoalRequest request,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public virtual Task<FinancialGoalResponse> UpdateFinancialGoalAsync(
+        Guid id,
+        FinancialGoalRequest request,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public virtual Task DeleteFinancialGoalAsync(Guid id, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public virtual Task<IReadOnlyList<FinancialGoalContributionResponse>>
+        GetFinancialGoalContributionsAsync(
+            Guid goalId,
+            CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<FinancialGoalContributionResponse>>([]);
+
+    public virtual Task<FinancialGoalContributionResponse> CreateFinancialGoalContributionAsync(
+        Guid goalId,
+        FinancialGoalContributionRequest request,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public virtual Task DeleteFinancialGoalContributionAsync(
+        Guid goalId,
+        Guid contributionId,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public virtual Task<CashFlowProjectionResponse> GetCashFlowProjectionAsync(
+        int months,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new CashFlowProjectionResponse(
+            new DateOnly(2026, 8, 1),
+            months,
+            0m,
+            0m,
+            0m,
+            0m,
+            []));
 }

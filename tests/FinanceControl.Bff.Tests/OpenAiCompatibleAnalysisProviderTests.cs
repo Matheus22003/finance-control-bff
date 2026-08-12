@@ -60,7 +60,11 @@ public sealed class OpenAiCompatibleAnalysisProviderTests
         3,
         2,
         [new AiBudgetCategoryContext("FOOD", 500m, 400m, 100m, 80m)],
-        [new AiMonthlyTrendContext("2026-08", 900m, 600m, 300m)]);
+        [new AiMonthlyTrendContext("2026-08", 900m, 600m, 300m)],
+        [new AiGoalContext("Meta 1", 10_000m, 2_500m, 7_500m, 25m, new DateOnly(2027, 1, 1), "ACTIVE", 1_500m)],
+        new AiCashFlowProjectionContext(
+            1_800m,
+            [new AiProjectionMonthContext("2026-08", 900m, 600m, 300m, 300m)]));
 
     private sealed class CompletionHandler : HttpMessageHandler
     {

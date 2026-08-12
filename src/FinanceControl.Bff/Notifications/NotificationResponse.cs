@@ -11,3 +11,5 @@ public sealed record NotificationResponse(
     DateTimeOffset CreatedAt);
 
 public sealed record NotificationUnreadCountResponse(int UnreadCount);
+
+public sealed record NotificationSyncResponse(int CreatedCount, DateTimeOffset SyncedAt);

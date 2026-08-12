@@ -9,7 +9,9 @@ public sealed record AiQuestionContext(
     IReadOnlyList<AiReceivableQuestionContext> Receivables,
     IReadOnlyList<AiPayableCategoryQuestionContext> PayablesByCategory,
     IReadOnlyList<AiBudgetCategoryContext> BudgetCategories,
-    IReadOnlyList<AiMonthlyTrendContext> MonthlyTrend);
+    IReadOnlyList<AiMonthlyTrendContext> MonthlyTrend,
+    IReadOnlyList<AiGoalContext> Goals,
+    AiCashFlowProjectionContext CashFlowProjection);
 
 public sealed record AiTransactionQuestionContext(
     string Alias,

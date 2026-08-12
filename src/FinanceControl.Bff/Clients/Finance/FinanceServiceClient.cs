@@ -38,11 +38,37 @@ public sealed class FinanceServiceClient(HttpClient httpClient) : IFinanceServic
             null,
             cancellationToken);
 
-    public Task<IReadOnlyList<string>> GetCategoriesAsync(CancellationToken cancellationToken) =>
-        SendForJsonAsync<IReadOnlyList<string>>(
+    public Task<IReadOnlyList<FinanceCategoryResponse>> GetCategoriesAsync(
+        CancellationToken cancellationToken) =>
+        SendForJsonAsync<IReadOnlyList<FinanceCategoryResponse>>(
             HttpMethod.Get,
             $"{FinanceBasePath}/categories",
             null,
+            cancellationToken);
+
+    public Task<FinanceCategoryResponse> CreateCategoryAsync(
+        FinanceCategoryRequest request,
+        CancellationToken cancellationToken) =>
+        SendForJsonAsync<FinanceCategoryResponse>(
+            HttpMethod.Post,
+            $"{FinanceBasePath}/categories",
+            request,
+            cancellationToken);
+
+    public Task<FinanceCategoryResponse> UpdateCategoryAsync(
+        long id,
+        FinanceCategoryRequest request,
+        CancellationToken cancellationToken) =>
+        SendForJsonAsync<FinanceCategoryResponse>(
+            HttpMethod.Put,
+            $"{FinanceBasePath}/categories/{id}",
+            request,
+            cancellationToken);
+
+    public Task DeleteCategoryAsync(long id, CancellationToken cancellationToken) =>
+        SendWithoutResponseBodyAsync(
+            HttpMethod.Delete,
+            $"{FinanceBasePath}/categories/{id}",
             cancellationToken);
 
     public Task<IReadOnlyList<IncomeResponse>> GetIncomesAsync(CancellationToken cancellationToken) =>
@@ -62,6 +88,15 @@ public sealed class FinanceServiceClient(HttpClient httpClient) : IFinanceServic
         SendForJsonAsync<IncomeResponse>(
             HttpMethod.Get,
             $"{FinanceBasePath}/incomes/{id}",
+            null,
+            cancellationToken);
+
+    public Task<IncomeGoalAllocationResponse> GetIncomeGoalAllocationsAsync(
+        Guid id,
+        CancellationToken cancellationToken) =>
+        SendForJsonAsync<IncomeGoalAllocationResponse>(
+            HttpMethod.Get,
+            $"{FinanceBasePath}/incomes/{id}/goal-allocations",
             null,
             cancellationToken);
 
@@ -204,6 +239,88 @@ public sealed class FinanceServiceClient(HttpClient httpClient) : IFinanceServic
             BuildQuery(
                 $"{FinanceBasePath}/budgets/{Uri.EscapeDataString(category)}",
                 ("month", month)),
+            null,
+            cancellationToken);
+
+    public Task<IReadOnlyList<FinancialGoalResponse>> GetFinancialGoalsAsync(
+        CancellationToken cancellationToken) =>
+        SendForJsonAsync<IReadOnlyList<FinancialGoalResponse>>(
+            HttpMethod.Get,
+            $"{FinanceBasePath}/goals",
+            null,
+            cancellationToken);
+
+    public Task<FinancialGoalResponse> GetFinancialGoalAsync(
+        Guid id,
+        CancellationToken cancellationToken) =>
+        SendForJsonAsync<FinancialGoalResponse>(
+            HttpMethod.Get,
+            $"{FinanceBasePath}/goals/{id}",
+            null,
+            cancellationToken);
+
+    public Task<FinancialGoalResponse> CreateFinancialGoalAsync(
+        FinancialGoalRequest request,
+        CancellationToken cancellationToken) =>
+        SendForJsonAsync<FinancialGoalResponse>(
+            HttpMethod.Post,
+            $"{FinanceBasePath}/goals",
+            request,
+            cancellationToken);
+
+    public Task<FinancialGoalResponse> UpdateFinancialGoalAsync(
+        Guid id,
+        FinancialGoalRequest request,
+        CancellationToken cancellationToken) =>
+        SendForJsonAsync<FinancialGoalResponse>(
+            HttpMethod.Put,
+            $"{FinanceBasePath}/goals/{id}",
+            request,
+            cancellationToken);
+
+    public Task DeleteFinancialGoalAsync(Guid id, CancellationToken cancellationToken) =>
+        SendWithoutResponseBodyAsync(
+            HttpMethod.Delete,
+            $"{FinanceBasePath}/goals/{id}",
+            cancellationToken);
+
+    public Task<IReadOnlyList<FinancialGoalContributionResponse>>
+        GetFinancialGoalContributionsAsync(
+            Guid goalId,
+            CancellationToken cancellationToken) =>
+        SendForJsonAsync<IReadOnlyList<FinancialGoalContributionResponse>>(
+            HttpMethod.Get,
+            $"{FinanceBasePath}/goals/{goalId}/contributions",
+            null,
+            cancellationToken);
+
+    public Task<FinancialGoalContributionResponse> CreateFinancialGoalContributionAsync(
+        Guid goalId,
+        FinancialGoalContributionRequest request,
+        CancellationToken cancellationToken) =>
+        SendForJsonAsync<FinancialGoalContributionResponse>(
+            HttpMethod.Post,
+            $"{FinanceBasePath}/goals/{goalId}/contributions",
+            request,
+            cancellationToken);
+
+    public Task DeleteFinancialGoalContributionAsync(
+        Guid goalId,
+        Guid contributionId,
+        CancellationToken cancellationToken) =>
+        SendWithoutResponseBodyAsync(
+            HttpMethod.Delete,
+            $"{FinanceBasePath}/goals/{goalId}/contributions/{contributionId}",
+            cancellationToken);
+
+    public Task<CashFlowProjectionResponse> GetCashFlowProjectionAsync(
+        int months,
+        CancellationToken cancellationToken) =>
+        SendForJsonAsync<CashFlowProjectionResponse>(
+            HttpMethod.Get,
+            BuildQuery(
+                $"{FinanceBasePath}/projections/cash-flow",
+                ("months", months.ToString(System.Globalization.CultureInfo.InvariantCulture))),
             null,
             cancellationToken);
 

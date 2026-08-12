@@ -25,7 +25,17 @@ public sealed partial class AiQuestionService(
         var groupsTask = debtServiceClient.GetGroupsAsync(cancellationToken);
         var budgetTask = financeServiceClient.GetMonthlyBudgetAsync(null, cancellationToken);
         var trendTask = financeServiceClient.GetTrendAsync(null, 6, cancellationToken);
-        await Task.WhenAll(incomesTask, expensesTask, debtsTask, groupsTask, budgetTask, trendTask);
+        var goalsTask = financeServiceClient.GetFinancialGoalsAsync(cancellationToken);
+        var projectionTask = financeServiceClient.GetCashFlowProjectionAsync(6, cancellationToken);
+        await Task.WhenAll(
+            incomesTask,
+            expensesTask,
+            debtsTask,
+            groupsTask,
+            budgetTask,
+            trendTask,
+            goalsTask,
+            projectionTask);
 
         var incomes = await incomesTask;
         var expenses = await expensesTask;
@@ -33,6 +43,8 @@ public sealed partial class AiQuestionService(
         var groups = await groupsTask;
         var budget = await budgetTask;
         var trend = await trendTask;
+        var goals = await goalsTask;
+        var projection = await projectionTask;
         var aliases = new AliasRegistry();
         var groupAliases = groups.ToDictionary(
             group => group.Id,
@@ -178,7 +190,25 @@ public sealed partial class AiQuestionService(
                 item.ReferenceMonth,
                 item.TotalIncome,
                 item.TotalExpenses,
-                item.Balance)).ToList());
+                item.Balance)).ToList(),
+            goals.Select(goal => new AiGoalContext(
+                    aliases.Add(goal.Name, "Meta"),
+                    goal.TargetAmount,
+                    goal.CurrentAmount,
+                    goal.RemainingAmount,
+                    goal.ProgressPercentage,
+                    goal.TargetDate,
+                    goal.Status,
+                    goal.RequiredMonthlyContribution))
+                .ToList(),
+            new AiCashFlowProjectionContext(
+                projection.ProjectedCumulativeBalance,
+                projection.Items.Select(item => new AiProjectionMonthContext(
+                    item.ReferenceMonth,
+                    item.ProjectedIncome,
+                    item.ProjectedExpenses,
+                    item.ProjectedNet,
+                    item.CumulativeBalance)).ToList()));
         var response = TryAnswerDeterministically(context) ??
                        await provider.AskAsync(context, cancellationToken);
 
@@ -199,7 +229,8 @@ public sealed partial class AiQuestionService(
         {
             "Quem ainda me deve dinheiro?",
             "De onde acumulei minhas dívidas?",
-            "Quanto gastei com alimentação?"
+            "Quanto gastei com alimentação?",
+            "Consigo atingir minha meta?"
         };
 
         if (normalizedQuestion.Contains("quem") &&
@@ -276,6 +307,47 @@ public sealed partial class AiQuestionService(
                     : $"Você ainda não definiu um orçamento para {CategoryLabel(category).ToLowerInvariant()}."
                 : JoinWithAnd(budgets.Select(item =>
                     $"{CategoryLabel(item.Category)} está em {item.UsagePercentage:N0}% ({Money(item.Spent)} de {Money(item.Planned)})")) + ".";
+            return new AiQuestionResponse(
+                timeProvider.GetUtcNow(),
+                "deterministic",
+                answer,
+                suggestions);
+        }
+
+        if (normalizedQuestion.Contains("meta") ||
+            normalizedQuestion.Contains("reserva") ||
+            normalizedQuestion.Contains("objetivo") ||
+            normalizedQuestion.Contains("atingir"))
+        {
+            var goal = context.Goals.FirstOrDefault(candidate =>
+                           normalizedQuestion.Contains(candidate.Alias.ToLowerInvariant())) ??
+                       context.Goals.FirstOrDefault(candidate => candidate.Status != "COMPLETED") ??
+                       context.Goals.FirstOrDefault();
+            if (goal is null)
+            {
+                return new AiQuestionResponse(
+                    timeProvider.GetUtcNow(),
+                    "deterministic",
+                    "Você ainda não cadastrou uma meta financeira.",
+                    suggestions);
+            }
+
+            if (goal.Status == "COMPLETED")
+            {
+                return new AiQuestionResponse(
+                    timeProvider.GetUtcNow(),
+                    "deterministic",
+                    $"A {goal.Alias} já foi concluída: {Money(goal.CurrentAmount)} reservados para um objetivo de {Money(goal.TargetAmount)}.",
+                    suggestions);
+            }
+
+            var positiveMonthlyAverage = context.CashFlowProjection.Months.Count == 0
+                ? 0m
+                : context.CashFlowProjection.Months
+                    .Average(month => decimal.Max(month.ProjectedNet, 0m));
+            var answer = positiveMonthlyAverage >= goal.RequiredMonthlyContribution
+                ? $"Pela projeção atual, a {goal.Alias} parece viável: ela exige cerca de {Money(goal.RequiredMonthlyContribution)} por mês e o fluxo positivo médio projetado é {Money(positiveMonthlyAverage)}. A projeção pode mudar com novos lançamentos."
+                : $"A {goal.Alias} exige cerca de {Money(goal.RequiredMonthlyContribution)} por mês, enquanto o fluxo positivo médio projetado é {Money(positiveMonthlyAverage)}. Hoje existe uma diferença mensal estimada de {Money(goal.RequiredMonthlyContribution - positiveMonthlyAverage)}.";
             return new AiQuestionResponse(
                 timeProvider.GetUtcNow(),
                 "deterministic",

@@ -18,7 +18,9 @@ public sealed record AiAnalysisContext(
     int OriginalTransferCount,
     int SimplifiedTransferCount,
     IReadOnlyList<AiBudgetCategoryContext> BudgetCategories,
-    IReadOnlyList<AiMonthlyTrendContext> MonthlyTrend);
+    IReadOnlyList<AiMonthlyTrendContext> MonthlyTrend,
+    IReadOnlyList<AiGoalContext> Goals,
+    AiCashFlowProjectionContext CashFlowProjection);
 
 public sealed record AiCategoryContext(string Category, decimal Amount);
 
@@ -54,3 +56,24 @@ public sealed record AiMonthlyTrendContext(
     decimal TotalIncome,
     decimal TotalExpenses,
     decimal Balance);
+
+public sealed record AiGoalContext(
+    string Alias,
+    decimal TargetAmount,
+    decimal CurrentAmount,
+    decimal RemainingAmount,
+    decimal ProgressPercentage,
+    DateOnly TargetDate,
+    string Status,
+    decimal RequiredMonthlyContribution);
+
+public sealed record AiCashFlowProjectionContext(
+    decimal ProjectedCumulativeBalance,
+    IReadOnlyList<AiProjectionMonthContext> Months);
+
+public sealed record AiProjectionMonthContext(
+    string ReferenceMonth,
+    decimal ProjectedIncome,
+    decimal ProjectedExpenses,
+    decimal ProjectedNet,
+    decimal CumulativeBalance);

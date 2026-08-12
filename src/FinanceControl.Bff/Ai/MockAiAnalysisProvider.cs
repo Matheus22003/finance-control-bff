@@ -79,7 +79,8 @@ public sealed class MockAiAnalysisProvider(TimeProvider timeProvider) : IAiAnaly
             [
                 "Quem ainda me deve dinheiro?",
                 "Em qual categoria acumulei mais dívidas?",
-                "Quanto gastei com alimentação?"
+                "Quanto gastei com alimentação?",
+                "Consigo atingir minha meta?"
             ]));
     }
 
@@ -115,6 +116,39 @@ public sealed class MockAiAnalysisProvider(TimeProvider timeProvider) : IAiAnaly
                 "INFO",
                 "Maior categoria de despesa",
                 $"{CategoryLabel(largestCategory.Category)} concentrou {largestCategory.Amount / context.TotalExpenses:P0} das despesas ({Money(largestCategory.Amount)})."));
+        }
+
+        var budgetAtRisk = context.BudgetCategories
+            .OrderByDescending(category => category.UsagePercentage)
+            .FirstOrDefault(category => category.UsagePercentage >= 80m);
+        if (budgetAtRisk is not null)
+        {
+            insights.Add(new AiInsightResponse(
+                budgetAtRisk.UsagePercentage >= 100m ? "CRITICAL" : "WARNING",
+                budgetAtRisk.UsagePercentage >= 100m
+                    ? "Limite mensal excedido"
+                    : "Orçamento próximo do limite",
+                $"{CategoryLabel(budgetAtRisk.Category)} consumiu {budgetAtRisk.UsagePercentage:N0}% do valor planejado ({Money(budgetAtRisk.Spent)} de {Money(budgetAtRisk.Planned)})."));
+        }
+
+        var activeGoal = context.Goals
+            .Where(goal => goal.Status != "COMPLETED")
+            .OrderBy(goal => goal.TargetDate)
+            .FirstOrDefault();
+        if (activeGoal is not null)
+        {
+            insights.Add(new AiInsightResponse(
+                activeGoal.Status == "OVERDUE" ? "WARNING" : "INFO",
+                activeGoal.Status == "OVERDUE" ? "Meta com prazo vencido" : "Progresso da meta",
+                $"{activeGoal.Alias} está em {activeGoal.ProgressPercentage:N0}% e precisa de aproximadamente {Money(activeGoal.RequiredMonthlyContribution)} por mês."));
+        }
+
+        if (context.CashFlowProjection.ProjectedCumulativeBalance < 0m)
+        {
+            insights.Add(new AiInsightResponse(
+                "WARNING",
+                "Projeção de caixa negativa",
+                $"O fluxo acumulado projetado para os próximos meses é {Money(context.CashFlowProjection.ProjectedCumulativeBalance)}."));
         }
 
         return insights;
@@ -176,6 +210,16 @@ public sealed class MockAiAnalysisProvider(TimeProvider timeProvider) : IAiAnaly
     private static IReadOnlyList<string> BuildRecommendations(AiAnalysisContext context)
     {
         var recommendations = new List<string>();
+        if (context.BudgetCategories.Any(category => category.UsagePercentage >= 80m))
+        {
+            recommendations.Add("Revise as categorias próximas ou acima do limite antes de novos gastos no mês.");
+        }
+
+
+        if (context.Goals.Any(goal => goal.Status == "OVERDUE"))
+        {
+            recommendations.Add("Revise o prazo ou o valor mensal das metas atrasadas para torná-las alcançáveis.");
+        }
         if (context.OverdueDebtsCount > 0)
         {
             recommendations.Add("Priorize os compromissos vencidos e confirme com os envolvidos antes de registrar pagamentos.");

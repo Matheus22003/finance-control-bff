@@ -79,7 +79,10 @@ public sealed class OpenAiCompatibleAnalysisProvider(
                 content = """
                     Você é um assistente de educação financeira. Analise somente os agregados fornecidos,
                     sem inventar valores, pessoas ou fatos. Responda em português do Brasil, de forma curta,
-                    empática e não prescritiva. Não diga que substitui orientação financeira profissional.
+                    empática e não prescritiva. Considere BudgetCategories, MonthlyTrend, Goals e
+                    CashFlowProjection quando existirem,
+                    destacando limites em 80% ou mais e mudanças relevantes entre meses.
+                    Não diga que substitui orientação financeira profissional.
                     Retorne exclusivamente JSON válido, sem markdown, usando exatamente este formato:
                     {"overview":"...","financeInsights":[{"severity":"INFO|POSITIVE|WARNING|CRITICAL","title":"...","description":"..."}],"debtInsights":[{"severity":"INFO|POSITIVE|WARNING|CRITICAL","title":"...","description":"..."}],"recommendations":["..."]}
                     """
@@ -127,7 +130,9 @@ public sealed class OpenAiCompatibleAnalysisProvider(
                     ao usuário, use exclusivamente Receivables: cada item significa que PersonAlias deve
                     Amount ao usuário atual. Para a origem das dívidas que o próprio usuário deve, use
                     PayablesByCategory. Nunca inverta essas duas direções e prefira CategoryLabel ao código
-                    Category. Retorne exclusivamente JSON
+                    Category. Para perguntas sobre orçamento e limites, use BudgetCategories; para evolução
+                    entre meses, use MonthlyTrend. Para metas e sua viabilidade, use Goals e
+                    CashFlowProjection sem tratar projeções como garantia. Retorne exclusivamente JSON
                     válido, sem markdown, neste formato:
                     {"answer":"...","suggestedQuestions":["...","..."]}
                     """

@@ -33,7 +33,7 @@ public sealed class BudgetAlertService(NotificationService notificationService)
             return;
         }
 
-        var categoryLabel = CategoryLabel(current.Category);
+        var categoryLabel = current.Name;
         var title = type == NotificationType.BudgetExceeded
             ? $"Orçamento de {categoryLabel} excedido"
             : $"Orçamento de {categoryLabel} em atenção";
@@ -41,22 +41,58 @@ public sealed class BudgetAlertService(NotificationService notificationService)
             ? $"Você consumiu {current.UsagePercentage:N0}% do limite de {categoryLabel}."
             : $"Você já consumiu {current.UsagePercentage:N0}% do limite de {categoryLabel}.";
 
-        await notificationService.PublishAsync(
+        await notificationService.PublishOnceAsync(
             [userId],
             type.Value,
             title,
             message,
             "/finance",
+            DeduplicationKey(after.ReferenceMonth, current.Category, type.Value),
             cancellationToken);
     }
 
-    private static string CategoryLabel(string category) => category.ToUpperInvariant() switch
+    public async Task<int> PublishCurrentStateAsync(
+        Guid userId,
+        MonthlyBudgetResponse budget,
+        CancellationToken cancellationToken)
     {
-        "FOOD" => "alimentação",
-        "TRANSPORT" => "transporte",
-        "RENT" => "moradia",
-        "LEISURE" => "lazer",
-        "HEALTH" => "saúde",
-        _ => "outros"
-    };
+        var createdCount = 0;
+        foreach (var category in budget.Categories.Where(item => item.Planned > 0m))
+        {
+            var type = category.UsagePercentage >= 100m
+                ? NotificationType.BudgetExceeded
+                : category.UsagePercentage >= 80m
+                    ? NotificationType.BudgetWarning
+                    : (NotificationType?)null;
+            if (type is null)
+            {
+                continue;
+            }
+
+            var categoryLabel = category.Name;
+            var title = type == NotificationType.BudgetExceeded
+                ? $"Orçamento de {categoryLabel} excedido"
+                : $"Orçamento de {categoryLabel} em atenção";
+            var message = type == NotificationType.BudgetExceeded
+                ? $"Você consumiu {category.UsagePercentage:N0}% do limite de {categoryLabel}."
+                : $"Você já consumiu {category.UsagePercentage:N0}% do limite de {categoryLabel}.";
+            createdCount += await notificationService.PublishOnceAsync(
+                [userId],
+                type.Value,
+                title,
+                message,
+                "/finance",
+                DeduplicationKey(budget.ReferenceMonth, category.Category, type.Value),
+                cancellationToken);
+        }
+
+        return createdCount;
+    }
+
+    private static string DeduplicationKey(
+        string referenceMonth,
+        string category,
+        NotificationType type) =>
+        $"budget:{referenceMonth}:{category.ToUpperInvariant()}:{type}";
+
 }

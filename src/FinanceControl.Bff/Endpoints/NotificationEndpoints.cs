@@ -11,6 +11,19 @@ public static class NotificationEndpoints
             .WithTags("Notifications")
             .RequireAuthorization();
 
+        notifications.MapPost("/sync", async (
+                HttpContext context,
+                NotificationAlertSyncService service,
+                CancellationToken cancellationToken) =>
+                Results.Ok(await service.SyncAsync(
+                    AuthenticatedUser.GetId(context.User),
+                    cancellationToken)))
+            .WithName("SyncNotificationAlerts")
+            .Produces<NotificationSyncResponse>()
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout);
+
         notifications.MapGet("/", async (
                 HttpContext context,
                 bool? unreadOnly,

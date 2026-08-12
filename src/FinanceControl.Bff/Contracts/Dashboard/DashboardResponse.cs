@@ -9,6 +9,8 @@ public record DashboardResponse
     public DashboardBudgetSummary Budget { get; init; } = default!;
     public IReadOnlyList<DashboardTrendMonth> MonthlyTrend { get; init; } = [];
     public IReadOnlyList<DashboardBudgetAlert> BudgetAlerts { get; init; } = [];
+    public IReadOnlyList<DashboardFinancialGoal> Goals { get; init; } = [];
+    public DashboardCashFlowProjection CashFlowProjection { get; init; } = default!;
 }
 
 public record DebtsSummary
@@ -27,6 +29,7 @@ public sealed record DashboardBudgetSummary(
 
 public sealed record DashboardBudgetCategory(
     string Category,
+    string Name,
     decimal Planned,
     decimal Spent,
     decimal Remaining,
@@ -41,7 +44,35 @@ public sealed record DashboardTrendMonth(
 public sealed record DashboardBudgetAlert(
     string Severity,
     string Category,
+    string Name,
     decimal UsagePercentage,
     decimal Planned,
     decimal Spent,
     decimal Remaining);
+
+public sealed record DashboardFinancialGoal(
+    Guid Id,
+    string Name,
+    decimal TargetAmount,
+    decimal CurrentAmount,
+    decimal RemainingAmount,
+    decimal ProgressPercentage,
+    DateOnly TargetDate,
+    string Status,
+    decimal RequiredMonthlyContribution);
+
+public sealed record DashboardCashFlowProjection(
+    DateOnly ReferenceDate,
+    int Months,
+    decimal CurrentRecordedBalance,
+    decimal TotalProjectedIncome,
+    decimal TotalProjectedExpenses,
+    decimal ProjectedCumulativeBalance,
+    IReadOnlyList<DashboardCashFlowProjectionMonth> Items);
+
+public sealed record DashboardCashFlowProjectionMonth(
+    string ReferenceMonth,
+    decimal ProjectedIncome,
+    decimal ProjectedExpenses,
+    decimal ProjectedNet,
+    decimal CumulativeBalance);

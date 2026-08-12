@@ -29,13 +29,23 @@ public static class DashboardEndpoints
         var financeSummaryTask = financeServiceClient.GetMonthlySummaryAsync(null, cancellationToken);
         var financeTrendTask = financeServiceClient.GetTrendAsync(null, 6, cancellationToken);
         var budgetTask = financeServiceClient.GetMonthlyBudgetAsync(null, cancellationToken);
+        var goalsTask = financeServiceClient.GetFinancialGoalsAsync(cancellationToken);
+        var projectionTask = financeServiceClient.GetCashFlowProjectionAsync(6, cancellationToken);
         var debtSummaryTask = debtServiceClient.GetSummaryAsync(cancellationToken);
 
-        await Task.WhenAll(financeSummaryTask, financeTrendTask, budgetTask, debtSummaryTask);
+        await Task.WhenAll(
+            financeSummaryTask,
+            financeTrendTask,
+            budgetTask,
+            goalsTask,
+            projectionTask,
+            debtSummaryTask);
 
         var financeSummary = await financeSummaryTask;
         var financeTrend = await financeTrendTask;
         var budget = await budgetTask;
+        var goals = await goalsTask;
+        var projection = await projectionTask;
         var debtSummary = await debtSummaryTask;
 
         return Results.Ok(new DashboardResponse
@@ -56,6 +66,7 @@ public static class DashboardEndpoints
                 budget.TotalRemaining,
                 budget.Categories.Select(category => new DashboardBudgetCategory(
                     category.Category,
+                    category.Name,
                     category.Planned,
                     category.Spent,
                     category.Remaining,
@@ -71,11 +82,40 @@ public static class DashboardEndpoints
                 .Select(category => new DashboardBudgetAlert(
                     category.UsagePercentage >= 100m ? "CRITICAL" : "WARNING",
                     category.Category,
+                    category.Name,
                     category.UsagePercentage,
                     category.Planned,
                     category.Spent,
                     category.Remaining))
-                .ToList()
+                .ToList(),
+            Goals = goals
+                .OrderBy(goal => goal.Status == "COMPLETED")
+                .ThenBy(goal => goal.TargetDate)
+                .Take(4)
+                .Select(goal => new DashboardFinancialGoal(
+                    goal.Id,
+                    goal.Name,
+                    goal.TargetAmount,
+                    goal.CurrentAmount,
+                    goal.RemainingAmount,
+                    goal.ProgressPercentage,
+                    goal.TargetDate,
+                    goal.Status,
+                    goal.RequiredMonthlyContribution))
+                .ToList(),
+            CashFlowProjection = new DashboardCashFlowProjection(
+                projection.ReferenceDate,
+                projection.Months,
+                projection.CurrentRecordedBalance,
+                projection.TotalProjectedIncome,
+                projection.TotalProjectedExpenses,
+                projection.ProjectedCumulativeBalance,
+                projection.Items.Select(item => new DashboardCashFlowProjectionMonth(
+                    item.ReferenceMonth,
+                    item.ProjectedIncome,
+                    item.ProjectedExpenses,
+                    item.ProjectedNet,
+                    item.CumulativeBalance)).ToList())
         });
     }
 }

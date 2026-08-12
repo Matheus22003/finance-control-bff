@@ -171,6 +171,50 @@ public sealed class ApiTests(BffApplicationFactory factory) : IClassFixture<BffA
     }
 
     [Fact]
+    public async Task NotificationSync_CreatesGoalAndBudgetAlertsOnlyOnce()
+    {
+        using var alertFactory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IFinanceServiceClient>();
+                services.AddSingleton<IFinanceServiceClient, AlertFinanceServiceClient>();
+            });
+        });
+        using var client = alertFactory.CreateClient();
+        var token = await AuthenticateAsync(client);
+
+        async Task<NotificationSyncResponse?> SyncAsync()
+        {
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                "/api/v1/notifications/sync");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var response = await client.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<NotificationSyncResponse>();
+        }
+
+        var firstSync = await SyncAsync();
+        var secondSync = await SyncAsync();
+
+        Assert.Equal(2, firstSync?.CreatedCount);
+        Assert.Equal(0, secondSync?.CreatedCount);
+
+        using var listRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/notifications");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var listResponse = await client.SendAsync(listRequest);
+        listResponse.EnsureSuccessStatusCode();
+        var notifications = await listResponse.Content
+            .ReadFromJsonAsync<IReadOnlyList<NotificationResponse>>();
+        Assert.Single(notifications!, notification => notification.Type == "GOAL_DUE_SOON");
+        var budgetAlert = Assert.Single(
+            notifications!,
+            notification => notification.Type == "BUDGET_WARNING");
+        Assert.Contains("Assinaturas", budgetAlert.Title);
+    }
+
+    [Fact]
     public async Task FinanceFacade_WithoutToken_ReturnsProblemDetails()
     {
         var response = await _client.GetAsync("/api/v1/finance/categories");
@@ -189,8 +233,9 @@ public sealed class ApiTests(BffApplicationFactory factory) : IClassFixture<BffA
         var response = await _client.SendAsync(request);
 
         response.EnsureSuccessStatusCode();
-        var categories = await response.Content.ReadFromJsonAsync<IReadOnlyList<string>>();
-        Assert.Equal(["FOOD", "TRANSPORT", "OTHER"], categories);
+        var categories = await response.Content
+            .ReadFromJsonAsync<IReadOnlyList<FinanceCategoryResponse>>();
+        Assert.Equal(["FOOD", "TRANSPORT", "OTHER"], categories?.Select(item => item.Code));
     }
 
     [Fact]
@@ -841,5 +886,44 @@ public sealed class ApiTests(BffApplicationFactory factory) : IClassFixture<BffA
             DeleteCalled = true;
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class AlertFinanceServiceClient : FinanceServiceClientStub
+    {
+        public override Task<IReadOnlyList<FinancialGoalResponse>> GetFinancialGoalsAsync(
+            CancellationToken cancellationToken)
+        {
+            var targetDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7));
+            return Task.FromResult<IReadOnlyList<FinancialGoalResponse>>([
+                new FinancialGoalResponse(
+                    Guid.Parse("00000000-0000-0000-0000-000000000901"),
+                    "Reserva de emergência",
+                    10_000m,
+                    6_000m,
+                    4_000m,
+                    60m,
+                    targetDate,
+                    "ACTIVE",
+                    4_000m,
+                    DateTimeOffset.UtcNow,
+                    DateTimeOffset.UtcNow)
+            ]);
+        }
+
+        public override Task<MonthlyBudgetResponse> GetMonthlyBudgetAsync(
+            string? month,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new MonthlyBudgetResponse(
+                month ?? DateTime.UtcNow.ToString("yyyy-MM"),
+                1_000m,
+                850m,
+                150m,
+                [new BudgetCategoryResponse(
+                    "CUSTOM_SUBSCRIPTIONS",
+                    "Assinaturas",
+                    1_000m,
+                    850m,
+                    150m,
+                    85m)]));
     }
 }

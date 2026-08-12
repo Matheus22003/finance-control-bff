@@ -8,6 +8,8 @@
 @debtId = 00000000-0000-0000-0000-000000000000
 @shareId = 00000000-0000-0000-0000-000000000000
 @paymentId = 00000000-0000-0000-0000-000000000000
+@goalId = 00000000-0000-0000-0000-000000000000
+@contributionId = 00000000-0000-0000-0000-000000000000
 
 ### Public health check
 GET {{host}}/health
@@ -116,6 +118,27 @@ Authorization: Bearer {{token}}
 DELETE {{host}}/api/v1/finance/expenses/{{expenseId}}
 Authorization: Bearer {{token}}
 
+### List financial goal contributions
+GET {{host}}/api/v1/finance/goals/{{goalId}}/contributions
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Register financial goal contribution
+POST {{host}}/api/v1/finance/goals/{{goalId}}/contributions
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "amount": 500.00,
+  "contributionDate": "2026-08-11",
+  "note": "Economia do mês",
+  "sourceIncomeId": "{{incomeId}}"
+}
+
+### Delete financial goal contribution
+DELETE {{host}}/api/v1/finance/goals/{{goalId}}/contributions/{{contributionId}}
+Authorization: Bearer {{token}}
+
 ### List people
 GET {{host}}/api/v1/people
 Accept: application/json
@@ -160,6 +183,10 @@ Authorization: Bearer {{token}}
 ### Notifications
 GET {{host}}/api/v1/notifications?unreadOnly=false&limit=30
 Accept: application/json
+Authorization: Bearer {{token}}
+
+### Synchronize budget and goal alerts
+POST {{host}}/api/v1/notifications/sync
 Authorization: Bearer {{token}}
 
 ### Unread notification count

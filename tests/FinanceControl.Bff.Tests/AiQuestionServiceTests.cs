@@ -12,6 +12,7 @@ public sealed class AiQuestionServiceTests
     [InlineData("Quem ainda me deve pela comida?", "Ana ainda deve R$ 50,00")]
     [InlineData("De onde acumulei minhas dívidas?", "não possui valores a pagar")]
     [InlineData("Quanto gastei com alimentação?", "R$ 75,00 com alimentação")]
+    [InlineData("Consigo atingir minha reserva?", "parece viável")]
     public async Task AskAsync_AnswersExactFinancialFactsWithoutCallingTheModel(
         string question,
         string expectedAnswer)
@@ -98,6 +99,35 @@ public sealed class AiQuestionServiceTests
                     DateTimeOffset.UtcNow,
                     DateTimeOffset.UtcNow)
             ]);
+
+        public override Task<IReadOnlyList<FinancialGoalResponse>> GetFinancialGoalsAsync(
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<FinancialGoalResponse>>([
+                new FinancialGoalResponse(
+                    Guid.NewGuid(),
+                    "Reserva de emergência",
+                    10_000m,
+                    2_500m,
+                    7_500m,
+                    25m,
+                    new DateOnly(2027, 2, 10),
+                    "ACTIVE",
+                    500m,
+                    DateTimeOffset.UtcNow,
+                    DateTimeOffset.UtcNow)
+            ]);
+
+        public override Task<CashFlowProjectionResponse> GetCashFlowProjectionAsync(
+            int months,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new CashFlowProjectionResponse(
+                new DateOnly(2026, 8, 10),
+                months,
+                1_000m,
+                6_000m,
+                0m,
+                6_000m,
+                [new CashFlowProjectionMonthResponse("2026-08", 1_000m, 0m, 1_000m, 1_000m)]));
     }
 
     private sealed class DebtClient : DebtServiceClientStub

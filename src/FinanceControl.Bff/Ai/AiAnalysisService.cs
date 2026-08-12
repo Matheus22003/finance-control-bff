@@ -16,6 +16,8 @@ public sealed class AiAnalysisService(
         var financeSummaryTask = financeServiceClient.GetMonthlySummaryAsync(month, cancellationToken);
         var budgetTask = financeServiceClient.GetMonthlyBudgetAsync(month, cancellationToken);
         var trendTask = financeServiceClient.GetTrendAsync(month, 6, cancellationToken);
+        var goalsTask = financeServiceClient.GetFinancialGoalsAsync(cancellationToken);
+        var projectionTask = financeServiceClient.GetCashFlowProjectionAsync(6, cancellationToken);
         var expensesTask = financeServiceClient.GetExpensesAsync(cancellationToken);
         var debtContextTask = debtServiceClient.GetAnalysisContextAsync(cancellationToken);
         var settlementsTask = debtServiceClient.GetSimplifiedSettlementsAsync(null, cancellationToken);
@@ -24,6 +26,8 @@ public sealed class AiAnalysisService(
             financeSummaryTask,
             budgetTask,
             trendTask,
+            goalsTask,
+            projectionTask,
             expensesTask,
             debtContextTask,
             settlementsTask);
@@ -31,6 +35,8 @@ public sealed class AiAnalysisService(
         var financeSummary = await financeSummaryTask;
         var budget = await budgetTask;
         var trend = await trendTask;
+        var goals = await goalsTask;
+        var projection = await projectionTask;
         var expenses = await expensesTask;
         var debtContext = await debtContextTask;
         var settlements = await settlementsTask;
@@ -106,7 +112,25 @@ public sealed class AiAnalysisService(
                     item.TotalIncome,
                     item.TotalExpenses,
                     item.Balance))
-                .ToList());
+                .ToList(),
+            goals.Select((goal, index) => new AiGoalContext(
+                    $"Meta {index + 1}",
+                    goal.TargetAmount,
+                    goal.CurrentAmount,
+                    goal.RemainingAmount,
+                    goal.ProgressPercentage,
+                    goal.TargetDate,
+                    goal.Status,
+                    goal.RequiredMonthlyContribution))
+                .ToList(),
+            new AiCashFlowProjectionContext(
+                projection.ProjectedCumulativeBalance,
+                projection.Items.Select(item => new AiProjectionMonthContext(
+                    item.ReferenceMonth,
+                    item.ProjectedIncome,
+                    item.ProjectedExpenses,
+                    item.ProjectedNet,
+                    item.CumulativeBalance)).ToList()));
 
         return await provider.AnalyzeAsync(sanitizedContext, cancellationToken);
     }

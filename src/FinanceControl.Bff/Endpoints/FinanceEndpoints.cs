@@ -42,7 +42,52 @@ public static class FinanceEndpoints
                 CancellationToken cancellationToken) =>
                 Results.Ok(await client.GetCategoriesAsync(cancellationToken)))
             .WithName("GetFinanceCategories")
-            .Produces<IReadOnlyList<string>>()
+            .Produces<IReadOnlyList<FinanceCategoryResponse>>()
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout);
+
+        finance.MapPost("/categories", async (
+                FinanceCategoryRequest request,
+                IFinanceServiceClient client,
+                CancellationToken cancellationToken) =>
+            {
+                var category = await client.CreateCategoryAsync(request, cancellationToken);
+                return Results.Created($"/api/v1/finance/categories/{category.Id}", category);
+            })
+            .WithName("CreateFinanceCategory")
+            .Produces<FinanceCategoryResponse>(StatusCodes.Status201Created)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout);
+
+        finance.MapPut("/categories/{id:long}", async (
+                long id,
+                FinanceCategoryRequest request,
+                IFinanceServiceClient client,
+                CancellationToken cancellationToken) =>
+                Results.Ok(await client.UpdateCategoryAsync(id, request, cancellationToken)))
+            .WithName("UpdateFinanceCategory")
+            .Produces<FinanceCategoryResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout);
+
+        finance.MapDelete("/categories/{id:long}", async (
+                long id,
+                IFinanceServiceClient client,
+                CancellationToken cancellationToken) =>
+            {
+                await client.DeleteCategoryAsync(id, cancellationToken);
+                return Results.NoContent();
+            })
+            .WithName("DeleteFinanceCategory")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status502BadGateway)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
             .ProducesProblem(StatusCodes.Status504GatewayTimeout);
@@ -66,6 +111,18 @@ public static class FinanceEndpoints
                 Results.Ok(await client.GetIncomeAsync(id, cancellationToken)))
             .WithName("GetIncomeById")
             .Produces<IncomeResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout);
+
+        finance.MapGet("/incomes/{id:guid}/goal-allocations", async (
+                Guid id,
+                IFinanceServiceClient client,
+                CancellationToken cancellationToken) =>
+                Results.Ok(await client.GetIncomeGoalAllocationsAsync(id, cancellationToken)))
+            .WithName("GetIncomeGoalAllocations")
+            .Produces<IncomeGoalAllocationResponse>()
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status502BadGateway)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
@@ -318,6 +375,161 @@ public static class FinanceEndpoints
                     cancellationToken)))
             .WithName("DeleteMonthlyBudget")
             .Produces<MonthlyBudgetResponse>()
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout);
+
+        finance.MapGet("/goals", async (
+                IFinanceServiceClient client,
+                CancellationToken cancellationToken) =>
+                Results.Ok(await client.GetFinancialGoalsAsync(cancellationToken)))
+            .WithName("GetFinancialGoals")
+            .Produces<IReadOnlyList<FinancialGoalResponse>>()
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout);
+
+        finance.MapGet("/goals/{id:guid}", async (
+                Guid id,
+                IFinanceServiceClient client,
+                CancellationToken cancellationToken) =>
+                Results.Ok(await client.GetFinancialGoalAsync(id, cancellationToken)))
+            .WithName("GetFinancialGoalById")
+            .Produces<FinancialGoalResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout);
+
+        finance.MapPost("/goals", async (
+                FinancialGoalRequest request,
+                HttpContext context,
+                IFinanceServiceClient client,
+                GoalAlertService goalAlerts,
+                CancellationToken cancellationToken) =>
+            {
+                var goal = await client.CreateFinancialGoalAsync(request, cancellationToken);
+                await goalAlerts.PublishCurrentStateAsync(
+                    AuthenticatedUser.GetId(context.User),
+                    [goal],
+                    cancellationToken);
+                return Results.Created($"/api/v1/finance/goals/{goal.Id}", goal);
+            })
+            .WithName("CreateFinancialGoal")
+            .Produces<FinancialGoalResponse>(StatusCodes.Status201Created)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout);
+
+        finance.MapPut("/goals/{id:guid}", async (
+                Guid id,
+                FinancialGoalRequest request,
+                HttpContext context,
+                IFinanceServiceClient client,
+                GoalAlertService goalAlerts,
+                CancellationToken cancellationToken) =>
+            {
+                var goal = await client.UpdateFinancialGoalAsync(id, request, cancellationToken);
+                await goalAlerts.PublishCurrentStateAsync(
+                    AuthenticatedUser.GetId(context.User),
+                    [goal],
+                    cancellationToken);
+                return Results.Ok(goal);
+            })
+            .WithName("UpdateFinancialGoal")
+            .Produces<FinancialGoalResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout);
+
+        finance.MapDelete("/goals/{id:guid}", async (
+                Guid id,
+                IFinanceServiceClient client,
+                CancellationToken cancellationToken) =>
+            {
+                await client.DeleteFinancialGoalAsync(id, cancellationToken);
+                return Results.NoContent();
+            })
+            .WithName("DeleteFinancialGoal")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout);
+
+        finance.MapGet("/goals/{goalId:guid}/contributions", async (
+                Guid goalId,
+                IFinanceServiceClient client,
+                CancellationToken cancellationToken) =>
+                Results.Ok(await client.GetFinancialGoalContributionsAsync(
+                    goalId,
+                    cancellationToken)))
+            .WithName("GetFinancialGoalContributions")
+            .Produces<IReadOnlyList<FinancialGoalContributionResponse>>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout);
+
+        finance.MapPost("/goals/{goalId:guid}/contributions", async (
+                Guid goalId,
+                FinancialGoalContributionRequest request,
+                HttpContext context,
+                IFinanceServiceClient client,
+                GoalAlertService goalAlerts,
+                CancellationToken cancellationToken) =>
+            {
+                var contribution = await client.CreateFinancialGoalContributionAsync(
+                    goalId,
+                    request,
+                    cancellationToken);
+                var goal = await client.GetFinancialGoalAsync(goalId, cancellationToken);
+                await goalAlerts.PublishCurrentStateAsync(
+                    AuthenticatedUser.GetId(context.User),
+                    [goal],
+                    cancellationToken);
+                return Results.Created(
+                    $"/api/v1/finance/goals/{goalId}/contributions/{contribution.Id}",
+                    contribution);
+            })
+            .WithName("CreateFinancialGoalContribution")
+            .Produces<FinancialGoalContributionResponse>(StatusCodes.Status201Created)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout);
+
+        finance.MapDelete("/goals/{goalId:guid}/contributions/{contributionId:guid}", async (
+                Guid goalId,
+                Guid contributionId,
+                IFinanceServiceClient client,
+                CancellationToken cancellationToken) =>
+            {
+                await client.DeleteFinancialGoalContributionAsync(
+                    goalId,
+                    contributionId,
+                    cancellationToken);
+                return Results.NoContent();
+            })
+            .WithName("DeleteFinancialGoalContribution")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout);
+
+        finance.MapGet("/projections/cash-flow", async (
+                int? months,
+                IFinanceServiceClient client,
+                CancellationToken cancellationToken) =>
+                Results.Ok(await client.GetCashFlowProjectionAsync(months ?? 6, cancellationToken)))
+            .WithName("GetCashFlowProjection")
+            .Produces<CashFlowProjectionResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status502BadGateway)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
             .ProducesProblem(StatusCodes.Status504GatewayTimeout);

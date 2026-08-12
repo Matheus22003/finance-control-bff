@@ -80,13 +80,52 @@ public sealed class NotificationService(
         string? route,
         CancellationToken cancellationToken)
     {
+        await PublishCoreAsync(
+            recipientUserIds,
+            type,
+            title,
+            message,
+            route,
+            null,
+            cancellationToken);
+    }
+
+    public Task<int> PublishOnceAsync(
+        IEnumerable<Guid> recipientUserIds,
+        NotificationType type,
+        string title,
+        string message,
+        string? route,
+        string deduplicationKey,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deduplicationKey);
+        return PublishCoreAsync(
+            recipientUserIds,
+            type,
+            title,
+            message,
+            route,
+            deduplicationKey.Trim(),
+            cancellationToken);
+    }
+
+    private async Task<int> PublishCoreAsync(
+        IEnumerable<Guid> recipientUserIds,
+        NotificationType type,
+        string title,
+        string message,
+        string? route,
+        string? deduplicationKey,
+        CancellationToken cancellationToken)
+    {
         var requestedRecipients = recipientUserIds
             .Where(userId => userId != Guid.Empty)
             .Distinct()
             .ToList();
         if (requestedRecipients.Count == 0)
         {
-            return;
+            return 0;
         }
 
         var recipients = await dbContext.Users
@@ -96,12 +135,35 @@ public sealed class NotificationService(
             .ToListAsync(cancellationToken);
         if (recipients.Count == 0)
         {
-            return;
+            return 0;
+        }
+
+        if (deduplicationKey is not null)
+        {
+            var alreadyNotified = await dbContext.Notifications
+                .AsNoTracking()
+                .Where(notification =>
+                    recipients.Contains(notification.UserId) &&
+                    notification.DeduplicationKey == deduplicationKey)
+                .Select(notification => notification.UserId)
+                .ToListAsync(cancellationToken);
+            recipients = recipients.Except(alreadyNotified).ToList();
+            if (recipients.Count == 0)
+            {
+                return 0;
+            }
         }
 
         var now = timeProvider.GetUtcNow();
         var notifications = recipients
-            .Select(userId => new UserNotification(userId, type, title, message, route, now))
+            .Select(userId => new UserNotification(
+                userId,
+                type,
+                title,
+                message,
+                route,
+                now,
+                deduplicationKey))
             .ToList();
         dbContext.Notifications.AddRange(notifications);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -122,6 +184,8 @@ public sealed class NotificationService(
                     notification.Id);
             }
         }
+
+        return notifications.Count;
     }
 
     private static NotificationResponse ToResponse(UserNotification notification) => new(

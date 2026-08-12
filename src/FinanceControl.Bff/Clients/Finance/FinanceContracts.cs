@@ -14,7 +14,37 @@ public sealed record IncomeResponse(
     DateTimeOffset UpdatedAt)
 {
     public Guid? RecurringTransactionId { get; init; }
+    public decimal GoalAllocatedAmount { get; init; }
+    public decimal GoalAvailableAmount { get; init; }
 }
+
+public sealed record IncomeGoalAllocationItemResponse(
+    Guid ContributionId,
+    Guid FinancialGoalId,
+    string FinancialGoalName,
+    decimal Amount,
+    DateOnly ContributionDate,
+    string? Note,
+    DateTimeOffset CreatedAt);
+
+public sealed record IncomeGoalAllocationResponse(
+    Guid IncomeId,
+    string IncomeDescription,
+    decimal IncomeAmount,
+    DateOnly TransactionDate,
+    decimal GoalAllocatedAmount,
+    decimal GoalAvailableAmount,
+    IReadOnlyList<IncomeGoalAllocationItemResponse> Allocations);
+
+public sealed record FinanceCategoryRequest(string Name);
+
+public sealed record FinanceCategoryResponse(
+    long Id,
+    string Code,
+    string Name,
+    bool DefaultCategory,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
 
 public sealed record ExpenseRequest(
     string Description,
@@ -68,6 +98,7 @@ public sealed record BudgetRequest(decimal Amount);
 
 public sealed record BudgetCategoryResponse(
     string Category,
+    string Name,
     decimal Planned,
     decimal Spent,
     decimal Remaining,
@@ -90,3 +121,60 @@ public sealed record FinanceTrendResponse(
     string ReferenceMonth,
     int Months,
     IReadOnlyList<FinanceTrendMonthResponse> Items);
+
+public sealed record FinancialGoalRequest(
+    string Name,
+    decimal TargetAmount,
+    decimal CurrentAmount,
+    DateOnly TargetDate);
+
+public sealed record FinancialGoalResponse(
+    Guid Id,
+    string Name,
+    decimal TargetAmount,
+    decimal CurrentAmount,
+    decimal RemainingAmount,
+    decimal ProgressPercentage,
+    DateOnly TargetDate,
+    string Status,
+    decimal RequiredMonthlyContribution,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
+public sealed record FinancialGoalContributionRequest(
+    decimal Amount,
+    DateOnly ContributionDate,
+    string? Note,
+    Guid? SourceIncomeId = null);
+
+public sealed record FinancialGoalContributionSourceResponse(
+    Guid? IncomeId,
+    string Description,
+    decimal IncomeAmount,
+    DateOnly TransactionDate);
+
+public sealed record FinancialGoalContributionResponse(
+    Guid Id,
+    Guid FinancialGoalId,
+    decimal Amount,
+    DateOnly ContributionDate,
+    string? Note,
+    string Type,
+    DateTimeOffset CreatedAt,
+    FinancialGoalContributionSourceResponse? Source = null);
+
+public sealed record CashFlowProjectionMonthResponse(
+    string ReferenceMonth,
+    decimal ProjectedIncome,
+    decimal ProjectedExpenses,
+    decimal ProjectedNet,
+    decimal CumulativeBalance);
+
+public sealed record CashFlowProjectionResponse(
+    DateOnly ReferenceDate,
+    int Months,
+    decimal CurrentRecordedBalance,
+    decimal TotalProjectedIncome,
+    decimal TotalProjectedExpenses,
+    decimal ProjectedCumulativeBalance,
+    IReadOnlyList<CashFlowProjectionMonthResponse> Items);

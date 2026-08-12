@@ -13,7 +13,19 @@ public interface IFinanceServiceClient
         int months,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<string>> GetCategoriesAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<FinanceCategoryResponse>> GetCategoriesAsync(
+        CancellationToken cancellationToken);
+
+    Task<FinanceCategoryResponse> CreateCategoryAsync(
+        FinanceCategoryRequest request,
+        CancellationToken cancellationToken);
+
+    Task<FinanceCategoryResponse> UpdateCategoryAsync(
+        long id,
+        FinanceCategoryRequest request,
+        CancellationToken cancellationToken);
+
+    Task DeleteCategoryAsync(long id, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<IncomeResponse>> GetIncomesAsync(CancellationToken cancellationToken);
 
@@ -23,6 +35,10 @@ public interface IFinanceServiceClient
         CancellationToken cancellationToken);
 
     Task<IncomeResponse> GetIncomeAsync(Guid id, CancellationToken cancellationToken);
+
+    Task<IncomeGoalAllocationResponse> GetIncomeGoalAllocationsAsync(
+        Guid id,
+        CancellationToken cancellationToken);
 
     Task<IncomeResponse> CreateIncomeAsync(
         IncomeRequest request,
@@ -83,5 +99,41 @@ public interface IFinanceServiceClient
     Task<MonthlyBudgetResponse> DeleteMonthlyBudgetAsync(
         string month,
         string category,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<FinancialGoalResponse>> GetFinancialGoalsAsync(
+        CancellationToken cancellationToken);
+
+    Task<FinancialGoalResponse> GetFinancialGoalAsync(
+        Guid id,
+        CancellationToken cancellationToken);
+
+    Task<FinancialGoalResponse> CreateFinancialGoalAsync(
+        FinancialGoalRequest request,
+        CancellationToken cancellationToken);
+
+    Task<FinancialGoalResponse> UpdateFinancialGoalAsync(
+        Guid id,
+        FinancialGoalRequest request,
+        CancellationToken cancellationToken);
+
+    Task DeleteFinancialGoalAsync(Guid id, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<FinancialGoalContributionResponse>> GetFinancialGoalContributionsAsync(
+        Guid goalId,
+        CancellationToken cancellationToken);
+
+    Task<FinancialGoalContributionResponse> CreateFinancialGoalContributionAsync(
+        Guid goalId,
+        FinancialGoalContributionRequest request,
+        CancellationToken cancellationToken);
+
+    Task DeleteFinancialGoalContributionAsync(
+        Guid goalId,
+        Guid contributionId,
+        CancellationToken cancellationToken);
+
+    Task<CashFlowProjectionResponse> GetCashFlowProjectionAsync(
+        int months,
         CancellationToken cancellationToken);
 }

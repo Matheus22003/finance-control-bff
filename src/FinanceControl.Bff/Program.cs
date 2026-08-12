@@ -218,6 +218,8 @@ builder.Services.AddSingleton<IUserIdProvider, NotificationUserIdProvider>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<BudgetAlertService>();
+builder.Services.AddScoped<GoalAlertService>();
+builder.Services.AddScoped<NotificationAlertSyncService>();
 builder.Services.AddScoped<AiAnalysisService>();
 builder.Services.AddScoped<AiQuestionService>();
 builder.Services.AddSingleton<MockAiAnalysisProvider>();

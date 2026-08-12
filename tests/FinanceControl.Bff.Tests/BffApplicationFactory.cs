@@ -75,10 +75,16 @@ public sealed class BffApplicationFactory : WebApplicationFactory<Program>
                 1_250.75m));
         }
 
-        public override Task<IReadOnlyList<string>> GetCategoriesAsync(
+        public override Task<IReadOnlyList<FinanceCategoryResponse>> GetCategoriesAsync(
             CancellationToken cancellationToken)
         {
-            IReadOnlyList<string> categories = ["FOOD", "TRANSPORT", "OTHER"];
+            var now = DateTimeOffset.UtcNow;
+            IReadOnlyList<FinanceCategoryResponse> categories =
+            [
+                new(1, "FOOD", "Alimentação", true, now, now),
+                new(2, "TRANSPORT", "Transporte", true, now, now),
+                new(3, "OTHER", "Outros", true, now, now)
+            ];
             return Task.FromResult(categories);
         }
 
