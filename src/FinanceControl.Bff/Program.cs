@@ -277,7 +277,15 @@ builder.Services
 builder.Services.AddHealthChecks();
 builder.Services.AddRateLimiter(options =>
 {
-    var sensitivePermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 10;
+    var sensitivePermitLimit = builder.Environment.IsEnvironment("Testing")
+        ? 1_000
+        : builder.Configuration.GetValue("RateLimiting:AuthSensitivePermitLimit", 10);
+    if (sensitivePermitLimit < 1)
+    {
+        throw new InvalidOperationException(
+            "RateLimiting:AuthSensitivePermitLimit must be greater than zero.");
+    }
+
     var refreshPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 30;
     var aiAnalysisPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 5;
     var aiQuestionPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 15;
