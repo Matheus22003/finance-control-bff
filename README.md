@@ -148,7 +148,8 @@ Para ambientes diferentes de Development, informe `Jwt__Key`, `DemoUser__Email`,
 ## Testes
 
 ```powershell
-dotnet test FinanceControl.Bff.sln --configuration Release --locked-mode
+dotnet restore FinanceControl.Bff.sln --locked-mode
+dotnet test FinanceControl.Bff.sln --configuration Release --no-restore
 ```
 
 ## Integração contínua
