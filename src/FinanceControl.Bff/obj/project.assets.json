@@ -2902,7 +2902,7 @@
     "C:\\Users\\pingo\\.nuget\\packages\\": {}
   },
   "project": {
-    "version": "1.0.0",
+    "version": "0.1.0",
     "restore": {
       "projectUniqueName": "C:\\Users\\pingo\\OneDrive\\Documentos\\github\\finance-control-bff\\src\\FinanceControl.Bff\\FinanceControl.Bff.csproj",
       "projectName": "FinanceControl.Bff",

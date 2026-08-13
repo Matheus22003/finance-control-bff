@@ -10,6 +10,7 @@ using FinanceControl.Bff.Email;
 using FinanceControl.Bff.Errors;
 using FinanceControl.Bff.OpenApi;
 using FinanceControl.Bff.Notifications;
+using FinanceControl.Bff.Observability;
 using FinanceControl.Bff.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -35,6 +36,8 @@ builder.Services.AddProblemDetails(options =>
         context.ProblemDetails.Instance = context.HttpContext.Request.Path;
         context.ProblemDetails.Extensions["traceId"] =
             Activity.Current?.Id ?? context.HttpContext.TraceIdentifier;
+        context.ProblemDetails.Extensions["correlationId"] =
+            CorrelationIdMiddleware.GetCorrelationId(context.HttpContext);
     };
 });
 builder.Services.AddExceptionHandler<FinanceServiceExceptionHandler>();
@@ -248,6 +251,7 @@ builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<RefreshTokenService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddTransient<AuthenticatedUserHandler>();
+builder.Services.AddTransient<CorrelationIdHandler>();
 builder.Services
     .AddHttpClient<IFinanceServiceClient, FinanceServiceClient>((serviceProvider, client) =>
     {
@@ -257,6 +261,7 @@ builder.Services
         client.BaseAddress = new Uri(options.BaseUrl);
         client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
     })
+    .AddHttpMessageHandler<CorrelationIdHandler>()
     .AddHttpMessageHandler<AuthenticatedUserHandler>();
 builder.Services
     .AddHttpClient<IDebtServiceClient, DebtServiceClient>((serviceProvider, client) =>
@@ -267,11 +272,20 @@ builder.Services
         client.BaseAddress = new Uri(options.BaseUrl);
         client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
     })
+    .AddHttpMessageHandler<CorrelationIdHandler>()
     .AddHttpMessageHandler<AuthenticatedUserHandler>();
 builder.Services.AddHealthChecks();
 builder.Services.AddRateLimiter(options =>
 {
-    var sensitivePermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 10;
+    var sensitivePermitLimit = builder.Environment.IsEnvironment("Testing")
+        ? 1_000
+        : builder.Configuration.GetValue("RateLimiting:AuthSensitivePermitLimit", 10);
+    if (sensitivePermitLimit < 1)
+    {
+        throw new InvalidOperationException(
+            "RateLimiting:AuthSensitivePermitLimit must be greater than zero.");
+    }
+
     var refreshPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 30;
     var aiAnalysisPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 5;
     var aiQuestionPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 15;
@@ -356,6 +370,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 }
 
 app.UseForwardedHeaders();
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
@@ -368,27 +383,33 @@ app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
-    app.Use(async (context, next) =>
+    if (app.Environment.IsDevelopment())
     {
-        if (context.Request.Path.StartsWithSegments("/swagger") &&
-            context.User.Identity?.IsAuthenticated != true)
+        app.Use(async (context, next) =>
         {
-            await context.ChallengeAsync();
-            return;
-        }
+            if (context.Request.Path.StartsWithSegments("/swagger") &&
+                context.User.Identity?.IsAuthenticated != true)
+            {
+                await context.ChallengeAsync();
+                return;
+            }
 
-        await next();
-    });
+            await next();
+        });
+    }
 
     app.MapOpenApi().RequireAuthorization();
-    app.MapScalarApiReference().RequireAuthorization();
-    app.UseSwaggerUI(options =>
+    if (app.Environment.IsDevelopment())
     {
-        options.SwaggerEndpoint("/openapi/v1.json", "Finance Control BFF v1");
-        options.RoutePrefix = "swagger";
-    });
+        app.MapScalarApiReference().RequireAuthorization();
+        app.UseSwaggerUI(options =>
+        {
+            options.SwaggerEndpoint("/openapi/v1.json", "Finance Control BFF v1");
+            options.RoutePrefix = "swagger";
+        });
+    }
 }
 
 app.MapHealthChecks("/health", new HealthCheckOptions

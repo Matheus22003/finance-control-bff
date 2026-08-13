@@ -11,6 +11,7 @@ using FinanceControl.Bff.Contracts.Ai;
 using FinanceControl.Bff.Contracts.Dashboard;
 using FinanceControl.Bff.Contracts.Users;
 using FinanceControl.Bff.Notifications;
+using FinanceControl.Bff.Observability;
 using FinanceControl.Bff.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,14 +40,33 @@ public sealed class ApiTests(BffApplicationFactory factory) : IClassFixture<BffA
     [Fact]
     public async Task Dashboard_WithoutToken_ReturnsProblemDetails()
     {
-        var response = await _client.GetAsync("/api/v1/dashboard");
+        var correlationId = Guid.Parse("202cc9fa-bf56-405a-a0f1-4961344224b8").ToString("D");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/dashboard");
+        request.Headers.Add(CorrelationIdMiddleware.HeaderName, correlationId);
+        var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(correlationId, response.Headers.GetValues(CorrelationIdMiddleware.HeaderName).Single());
 
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal(401, payload.RootElement.GetProperty("status").GetInt32());
         Assert.True(payload.RootElement.TryGetProperty("traceId", out _));
+        Assert.Equal(correlationId, payload.RootElement.GetProperty("correlationId").GetString());
+    }
+
+    [Fact]
+    public async Task InvalidCorrelationId_IsReplacedWithGeneratedIdentifier()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/health");
+        request.Headers.TryAddWithoutValidation(CorrelationIdMiddleware.HeaderName, "not-a-valid-id");
+
+        var response = await _client.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
+        var generatedValue = response.Headers.GetValues(CorrelationIdMiddleware.HeaderName).Single();
+        Assert.True(Guid.TryParse(generatedValue, out _));
+        Assert.NotEqual("not-a-valid-id", generatedValue);
     }
 
     [Fact]
