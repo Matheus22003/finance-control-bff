@@ -55,6 +55,15 @@ O BFF persiste notificações direcionadas aos usuários envolvidos em amizades,
 
 O evento em tempo real é um aviso de mudança; os clientes sempre consultam novamente os endpoints REST protegidos para obter o estado oficial. Essa combinação entre sincronização REST e entrega SignalR pode ser reutilizada por clientes web e mobile. O token do hub é aceito pela query string somente no caminho restrito `/api/v1/notifications/hub`, conforme a limitação dos transportes WebSocket/SSE no navegador.
 
+## Observabilidade
+
+Cada requisição recebe um UUID no header `X-Correlation-ID`. O BFF preserva um
+valor válido enviado pelo cliente ou gera um novo, devolve-o na resposta e o
+propaga ao Finance Service e ao Debt Service. Os logs são emitidos em JSON com o
+ID de correlação, método, caminho, status HTTP e duração. Respostas ProblemDetails
+incluem `correlationId` e `traceId`, permitindo relacionar o erro aos três serviços
+sem registrar tokens, payloads ou parâmetros sensíveis.
+
 ## Integrações com Finance e Debt
 
 ### Análise financeira e de dívidas
