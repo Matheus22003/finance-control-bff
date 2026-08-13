@@ -375,27 +375,33 @@ app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
-    app.Use(async (context, next) =>
+    if (app.Environment.IsDevelopment())
     {
-        if (context.Request.Path.StartsWithSegments("/swagger") &&
-            context.User.Identity?.IsAuthenticated != true)
+        app.Use(async (context, next) =>
         {
-            await context.ChallengeAsync();
-            return;
-        }
+            if (context.Request.Path.StartsWithSegments("/swagger") &&
+                context.User.Identity?.IsAuthenticated != true)
+            {
+                await context.ChallengeAsync();
+                return;
+            }
 
-        await next();
-    });
+            await next();
+        });
+    }
 
     app.MapOpenApi().RequireAuthorization();
-    app.MapScalarApiReference().RequireAuthorization();
-    app.UseSwaggerUI(options =>
+    if (app.Environment.IsDevelopment())
     {
-        options.SwaggerEndpoint("/openapi/v1.json", "Finance Control BFF v1");
-        options.RoutePrefix = "swagger";
-    });
+        app.MapScalarApiReference().RequireAuthorization();
+        app.UseSwaggerUI(options =>
+        {
+            options.SwaggerEndpoint("/openapi/v1.json", "Finance Control BFF v1");
+            options.RoutePrefix = "swagger";
+        });
+    }
 }
 
 app.MapHealthChecks("/health", new HealthCheckOptions
