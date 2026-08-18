@@ -72,25 +72,48 @@ builder.Services.Configure<Microsoft.AspNetCore.Identity.DataProtectionTokenProv
 });
 
 var dataProtection = builder.Services.AddDataProtection()
-    .SetApplicationName("FinanceControl.Bff");
-var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
-if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
-{
-    Directory.CreateDirectory(dataProtectionKeysPath);
-    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
-}
+    .SetApplicationName("FinanceControl.Bff")
+    .PersistKeysToDbContext<BffDbContext>();
 
 builder.Services
     .AddOptions<EmailOptions>()
     .Bind(builder.Configuration.GetSection(EmailOptions.SectionName))
     .ValidateDataAnnotations()
     .Validate(options =>
-        (string.IsNullOrWhiteSpace(options.UserName) && string.IsNullOrWhiteSpace(options.Password)) ||
-        (!string.IsNullOrWhiteSpace(options.UserName) && !string.IsNullOrWhiteSpace(options.Password)),
-        "Email credentials must both be empty or both be configured.")
+        string.Equals(options.Provider, EmailOptions.SmtpProvider, StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(options.Provider, EmailOptions.BrevoProvider, StringComparison.OrdinalIgnoreCase),
+        "Email:Provider must be Smtp or Brevo.")
+    .Validate(options =>
+        options.UsesBrevo ||
+        (!string.IsNullOrWhiteSpace(options.Host) &&
+         ((string.IsNullOrWhiteSpace(options.UserName) && string.IsNullOrWhiteSpace(options.Password)) ||
+          (!string.IsNullOrWhiteSpace(options.UserName) && !string.IsNullOrWhiteSpace(options.Password)))),
+        "SMTP requires a host and both credentials must be empty or configured.")
+    .Validate(options => !options.UsesBrevo || !string.IsNullOrWhiteSpace(options.ApiKey),
+        "Brevo requires Email:ApiKey.")
     .ValidateOnStart();
 builder.Services.AddSingleton<EmailLinkFactory>();
-builder.Services.AddTransient<IApplicationEmailSender, SmtpEmailSender>();
+builder.Services.AddTransient<SmtpEmailSender>();
+builder.Services.AddHttpClient<BrevoEmailSender>((serviceProvider, client) =>
+{
+    var options = serviceProvider
+        .GetRequiredService<Microsoft.Extensions.Options.IOptions<EmailOptions>>()
+        .Value;
+    var baseUrl = options.ApiBaseUrl.EndsWith("/", StringComparison.Ordinal)
+        ? options.ApiBaseUrl
+        : $"{options.ApiBaseUrl}/";
+    client.BaseAddress = new Uri(baseUrl);
+    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+});
+builder.Services.AddTransient<IApplicationEmailSender>(serviceProvider =>
+{
+    var options = serviceProvider
+        .GetRequiredService<Microsoft.Extensions.Options.IOptions<EmailOptions>>()
+        .Value;
+    return options.UsesBrevo
+        ? serviceProvider.GetRequiredService<BrevoEmailSender>()
+        : serviceProvider.GetRequiredService<SmtpEmailSender>();
+});
 
 builder.Services
     .AddOptions<JwtOptions>()

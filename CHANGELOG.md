@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- envio transacional pelo Brevo usando a API HTTPS;
+- persistência das chaves ASP.NET Core Data Protection no PostgreSQL do BFF;
+- workflow de publicação multiarch `linux/amd64` e `linux/arm64` no GHCR.
+
 ## [0.1.0] - 2026-08-13
 
 ### Added

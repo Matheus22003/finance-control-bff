@@ -1,5 +1,6 @@
 using FinanceControl.Bff.Auth;
 using FinanceControl.Bff.Notifications;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -7,8 +8,9 @@ using Microsoft.EntityFrameworkCore;
 namespace FinanceControl.Bff.Persistence;
 
 public sealed class BffDbContext(DbContextOptions<BffDbContext> options)
-    : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
+    : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options), IDataProtectionKeyContext
 {
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
     public DbSet<UserNotification> Notifications => Set<UserNotification>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
 
@@ -23,6 +25,7 @@ public sealed class BffDbContext(DbContextOptions<BffDbContext> options)
         builder.Entity<IdentityUserLogin<Guid>>().ToTable("user_logins");
         builder.Entity<IdentityRoleClaim<Guid>>().ToTable("role_claims");
         builder.Entity<IdentityUserToken<Guid>>().ToTable("user_tokens");
+        builder.Entity<DataProtectionKey>().ToTable("data_protection_keys");
 
         builder.Entity<ApplicationUser>()
             .Property(user => user.DisplayName)
