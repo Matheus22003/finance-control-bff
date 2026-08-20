@@ -138,6 +138,8 @@ builder.Services
          string.IsNullOrWhiteSpace(options.FriendPassword)) ||
         (!string.IsNullOrWhiteSpace(options.FriendEmail) &&
          !string.IsNullOrWhiteSpace(options.FriendPassword) &&
+         new System.ComponentModel.DataAnnotations.EmailAddressAttribute()
+             .IsValid(options.FriendEmail) &&
          options.FriendPassword.Length >= 8),
         "DemoUser friend credentials must both be empty or contain a valid email and password.")
     .ValidateOnStart();
