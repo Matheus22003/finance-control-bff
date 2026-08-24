@@ -86,7 +86,7 @@ Nenhum SDK de fornecedor é necessário. Para usar o free tier do Groq:
 Ai__Provider=OpenAiCompatible
 Ai__BaseUrl=https://api.groq.com/openai/v1/
 Ai__ApiKey=sua-chave
-Ai__Model=llama-3.1-8b-instant
+Ai__Model=openai/gpt-oss-20b
 Ai__TimeoutSeconds=30
 Ai__MaxOutputTokens=800
 Ai__UseJsonResponseFormat=false
