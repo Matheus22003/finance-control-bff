@@ -15,7 +15,7 @@ public sealed class AiProviderOptions
 
     public string ApiKey { get; init; } = string.Empty;
 
-    public string Model { get; init; } = "llama-3.1-8b-instant";
+    public string Model { get; init; } = "openai/gpt-oss-20b";
 
     [Range(1, 120)]
     public int TimeoutSeconds { get; init; } = 30;

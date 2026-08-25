@@ -18,9 +18,6 @@ WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 
-USER root
-RUN mkdir -p /var/lib/finance-control/keys \
-    && chown -R $APP_UID:$APP_UID /var/lib/finance-control
 USER $APP_UID
 COPY --from=build --chown=$APP_UID:$APP_UID /app/publish .
 ENTRYPOINT ["dotnet", "FinanceControl.Bff.dll"]

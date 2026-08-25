@@ -14,7 +14,6 @@ public sealed class DemoUserOptions
     [MinLength(8)]
     public string Password { get; init; } = string.Empty;
 
-    [EmailAddress]
     public string? FriendEmail { get; init; }
 
     public string? FriendPassword { get; init; }

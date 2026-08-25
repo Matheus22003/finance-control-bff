@@ -12,6 +12,7 @@ Backend for Frontend responsável pela autenticação, segurança, fachadas CRUD
 - OpenAPI nativo 3.1
 - Scalar e Swagger UI
 - ProblemDetails (RFC 7807)
+- SMTP local e Brevo API HTTPS no staging
 
 ## Endpoints públicos
 
@@ -85,7 +86,7 @@ Nenhum SDK de fornecedor é necessário. Para usar o free tier do Groq:
 Ai__Provider=OpenAiCompatible
 Ai__BaseUrl=https://api.groq.com/openai/v1/
 Ai__ApiKey=sua-chave
-Ai__Model=llama-3.1-8b-instant
+Ai__Model=openai/gpt-oss-20b
 Ai__TimeoutSeconds=30
 Ai__MaxOutputTokens=800
 Ai__UseJsonResponseFormat=false
@@ -145,6 +146,27 @@ password: ChangeMe123!
 
 Para ambientes diferentes de Development, informe `Jwt__Key`, `DemoUser__Email`, `DemoUser__Password`, `FinanceService__BaseUrl` e `DebtService__BaseUrl` por variáveis de ambiente.
 
+### E-mail no staging
+
+O desenvolvimento continua usando SMTP e Mailpit. O staging seleciona Brevo
+sem trocar a interface utilizada pelos endpoints:
+
+```text
+Email__Provider=Brevo
+Email__ApiBaseUrl=https://api.brevo.com/v3/
+Email__ApiKey=sua-chave-brevo
+Email__FromAddress=remetente-validado@example.com
+Email__FromName=Finance Control
+Email__FrontendBaseUrl=https://finance-control.pages.dev
+```
+
+A chave é enviada somente no header `api-key` da requisição server-to-server.
+Ela nunca é devolvida ao frontend ou registrada em logs.
+
+As chaves ASP.NET Core Data Protection são persistidas no mesmo PostgreSQL
+exclusivo do BFF. Reiniciar ou recriar o container não invalida links de
+confirmação, recuperação ou troca de e-mail ainda dentro do prazo.
+
 ## Testes
 
 ```powershell
@@ -158,6 +180,10 @@ O workflow `.github/workflows/ci.yml` é executado em pushes e pull requests par
 `main` e `develop`, além de permitir execução manual. A pipeline restaura as
 dependências pelo lock file, executa os testes em `Release` e valida a imagem
 Docker do BFF.
+
+O workflow `.github/workflows/publish-image.yml` é executado por tags `v*` ou
+manualmente e publica no GHCR uma imagem única compatível com `linux/amd64` e
+`linux/arm64`.
 
 ## Docker
 
@@ -181,6 +207,7 @@ O container escuta em `http://localhost:8080`. A terminação TLS deve ser feita
 Aplicação:
 
 - `Microsoft.AspNetCore.Authentication.JwtBearer` `10.0.10`
+- `Microsoft.AspNetCore.DataProtection.EntityFrameworkCore` `10.0.10`
 - `MailKit` `4.17.0`
 - `Microsoft.AspNetCore.OpenApi` `10.0.10`
 - `Microsoft.OpenApi` `2.11.0`
