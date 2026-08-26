@@ -22,6 +22,22 @@ internal abstract class DebtServiceClientStub : IDebtServiceClient
         CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
+    public virtual Task<DebtReportResponse> GetReportAsync(
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new DebtReportResponse(
+            from,
+            to,
+            0m,
+            0m,
+            0m,
+            0,
+            0,
+            [],
+            [],
+            []));
+
     public virtual Task<SimplifiedSettlementResponse> GetSimplifiedSettlementsAsync(
         Guid? groupId,
         CancellationToken cancellationToken) =>

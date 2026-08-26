@@ -38,6 +38,19 @@ public sealed class FinanceServiceClient(HttpClient httpClient) : IFinanceServic
             null,
             cancellationToken);
 
+    public Task<FinanceReportResponse> GetReportAsync(
+        string fromMonth,
+        string toMonth,
+        CancellationToken cancellationToken) =>
+        SendForJsonAsync<FinanceReportResponse>(
+            HttpMethod.Get,
+            BuildQuery(
+                $"{FinanceBasePath}/reports/overview",
+                ("from", fromMonth),
+                ("to", toMonth)),
+            null,
+            cancellationToken);
+
     public Task<IReadOnlyList<FinanceCategoryResponse>> GetCategoriesAsync(
         CancellationToken cancellationToken) =>
         SendForJsonAsync<IReadOnlyList<FinanceCategoryResponse>>(

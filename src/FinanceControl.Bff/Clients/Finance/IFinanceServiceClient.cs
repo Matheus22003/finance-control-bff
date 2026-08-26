@@ -13,6 +13,11 @@ public interface IFinanceServiceClient
         int months,
         CancellationToken cancellationToken);
 
+    Task<FinanceReportResponse> GetReportAsync(
+        string fromMonth,
+        string toMonth,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<FinanceCategoryResponse>> GetCategoriesAsync(
         CancellationToken cancellationToken);
 

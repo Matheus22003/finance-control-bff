@@ -21,6 +21,23 @@ internal abstract class FinanceServiceClientStub : IFinanceServiceClient
             months,
             []));
 
+    public virtual Task<FinanceReportResponse> GetReportAsync(
+        string fromMonth,
+        string toMonth,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new FinanceReportResponse(
+            fromMonth,
+            toMonth,
+            0m,
+            0m,
+            0m,
+            0m,
+            0,
+            0,
+            [],
+            [],
+            []));
+
     public virtual Task<IReadOnlyList<FinanceCategoryResponse>> GetCategoriesAsync(
         CancellationToken cancellationToken) =>
         throw new NotSupportedException();
