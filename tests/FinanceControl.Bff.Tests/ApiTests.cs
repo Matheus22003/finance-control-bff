@@ -9,6 +9,7 @@ using FinanceControl.Bff.Clients.Finance;
 using FinanceControl.Bff.Contracts.Auth;
 using FinanceControl.Bff.Contracts.Ai;
 using FinanceControl.Bff.Contracts.Dashboard;
+using FinanceControl.Bff.Contracts.Reports;
 using FinanceControl.Bff.Contracts.Users;
 using FinanceControl.Bff.Notifications;
 using FinanceControl.Bff.Observability;
@@ -119,6 +120,42 @@ public sealed class ApiTests(BffApplicationFactory factory) : IClassFixture<BffA
         Assert.Equal("deterministic", answer.Provider);
         Assert.NotEmpty(answer.Answer);
         Assert.NotEmpty(answer.SuggestedQuestions);
+    }
+
+    [Fact]
+    public async Task Reports_RequireJwtAndReturnOverviewAndCsvExport()
+    {
+        var unauthorized = await _client.GetAsync(
+            "/api/v1/reports/overview?from=2026-01&to=2026-01");
+        Assert.Equal(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+
+        var token = await AuthenticateAsync(_client);
+        using var overviewRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/reports/overview?from=2026-01&to=2026-01");
+        overviewRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var overviewResponse = await _client.SendAsync(overviewRequest);
+
+        overviewResponse.EnsureSuccessStatusCode();
+        var overview = await overviewResponse.Content.ReadFromJsonAsync<ReportOverviewResponse>();
+        Assert.NotNull(overview);
+        Assert.Equal(1_200m, overview.Finance.TotalIncome);
+        Assert.Equal(700m, overview.Finance.TotalExpenses);
+        Assert.Equal(200m, overview.Debts.TotalOwed);
+        Assert.Equal("Alimentação", overview.Highlights.HighestExpenseCategory);
+
+        using var exportRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/reports/export.csv?from=2026-01&to=2026-01");
+        exportRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var exportResponse = await _client.SendAsync(exportRequest);
+
+        exportResponse.EnsureSuccessStatusCode();
+        Assert.Equal("text/csv", exportResponse.Content.Headers.ContentType?.MediaType);
+        var bytes = await exportResponse.Content.ReadAsByteArrayAsync();
+        Assert.True(bytes.AsSpan().StartsWith(new byte[] { 0xEF, 0xBB, 0xBF }));
+        var csv = System.Text.Encoding.UTF8.GetString(bytes[3..]);
+        Assert.Contains("\"Mensal\";\"2026-01\";1200.00;700.00;500.00;200.00;80.00;450.00", csv);
     }
 
     [Fact]

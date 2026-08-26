@@ -16,6 +16,11 @@ public interface IDebtServiceClient
     Task<DebtAnalysisContextResponse> GetAnalysisContextAsync(
         CancellationToken cancellationToken);
 
+    Task<DebtReportResponse> GetReportAsync(
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken);
+
     Task<SimplifiedSettlementResponse> GetSimplifiedSettlementsAsync(
         Guid? groupId,
         CancellationToken cancellationToken);

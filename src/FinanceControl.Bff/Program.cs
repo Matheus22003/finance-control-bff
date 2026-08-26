@@ -461,6 +461,7 @@ apiV1.MapDashboardEndpoints();
 apiV1.MapAiEndpoints();
 apiV1.MapFinanceEndpoints();
 apiV1.MapDebtEndpoints();
+apiV1.MapReportEndpoints();
 apiV1.MapUserEndpoints();
 apiV1.MapSocialEndpoints();
 apiV1.MapNotificationEndpoints();

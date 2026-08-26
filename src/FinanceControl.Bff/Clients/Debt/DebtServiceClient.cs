@@ -50,6 +50,16 @@ public sealed class DebtServiceClient(HttpClient httpClient) : IDebtServiceClien
             null,
             cancellationToken);
 
+    public Task<DebtReportResponse> GetReportAsync(
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken) =>
+        SendForJsonAsync<DebtReportResponse>(
+            HttpMethod.Get,
+            $"{DebtsPath}/reports/overview?from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}",
+            null,
+            cancellationToken);
+
     public Task<SimplifiedSettlementResponse> GetSimplifiedSettlementsAsync(
         Guid? groupId,
         CancellationToken cancellationToken) =>
