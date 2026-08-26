@@ -26,6 +26,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Scalar.AspNetCore;
 using System.Threading.RateLimiting;
+using WebPush;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -114,6 +115,13 @@ builder.Services.AddTransient<IApplicationEmailSender>(serviceProvider =>
         ? serviceProvider.GetRequiredService<BrevoEmailSender>()
         : serviceProvider.GetRequiredService<SmtpEmailSender>();
 });
+
+builder.Services
+    .AddOptions<WebPushOptions>()
+    .Bind(builder.Configuration.GetSection(WebPushOptions.SectionName))
+    .Validate(options => !options.Enabled || options.IsConfigured,
+        "Enabled WebPush requires a valid HTTPS/mailto Subject and a valid VAPID P-256 key pair.")
+    .ValidateOnStart();
 
 builder.Services
     .AddOptions<JwtOptions>()
@@ -245,6 +253,10 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, NotificationUserIdProvider>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<NotificationPreferenceService>();
+builder.Services.AddScoped<PushSubscriptionService>();
+builder.Services.AddScoped<NotificationDeliveryDispatcher>();
+builder.Services.AddSingleton<WebPushClient>();
 builder.Services.AddScoped<BudgetAlertService>();
 builder.Services.AddScoped<GoalAlertService>();
 builder.Services.AddScoped<NotificationAlertSyncService>();

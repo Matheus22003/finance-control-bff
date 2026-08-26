@@ -93,6 +93,15 @@
         "resolved": "10.2.3",
         "contentHash": "nthWONRs/FJ4yyG206g1cC52WEG8EqrjuMWjGdR+5XG7lbjFto6NqcI9EMICgVFom/UivIjUVwI76ZHbHwTPfQ=="
       },
+      "WebPush": {
+        "type": "Direct",
+        "requested": "[1.0.13, )",
+        "resolved": "1.0.13",
+        "contentHash": "Qyypsk6j+GqncCa/IgbmZLnL7DxqKFGz3jIdquGSLeiD3NtN+HPnIFBMwIJHffDU9ZEztTkaMMYxvW3PJxJL7Q==",
+        "dependencies": {
+          "Portable.BouncyCastle": "1.9.0"
+        }
+      },
       "BouncyCastle.Cryptography": {
         "type": "Transitive",
         "resolved": "2.6.2",
@@ -283,6 +292,11 @@
         "type": "Transitive",
         "resolved": "10.0.3",
         "contentHash": "7nb5YzXuvWWJxB0J8DiyL3we+X4FOctZrt0fIBnucOIaIevFEEwGQVZKtiu9olXdlNAK1eNgqSral6r/jlhI4w=="
+      },
+      "Portable.BouncyCastle": {
+        "type": "Transitive",
+        "resolved": "1.9.0",
+        "contentHash": "eZZBCABzVOek+id9Xy04HhmgykF0wZg9wpByzrWN7q8qEI0Qen9b7tfd7w8VA3dOeesumMG7C5ZPy0jk7PSRHw=="
       },
       "System.CodeDom": {
         "type": "Transitive",

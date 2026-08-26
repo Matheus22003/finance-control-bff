@@ -235,6 +235,128 @@ public sealed class ApiTests(BffApplicationFactory factory) : IClassFixture<BffA
     }
 
     [Fact]
+    public async Task NotificationPreferences_AreGranularAndControlInAppDelivery()
+    {
+        var friendToken = await AuthenticateAsync(_client, "friend@test.local");
+        using var getRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/notifications/preferences");
+        getRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", friendToken);
+        var getResponse = await _client.SendAsync(getRequest);
+        getResponse.EnsureSuccessStatusCode();
+        var initial = await getResponse.Content.ReadFromJsonAsync<NotificationPreferencesResponse>();
+        Assert.Equal(24, initial?.Preferences.Count);
+        Assert.Contains(
+            initial!.Preferences,
+            preference => preference.Type == "PAYMENT_RECORDED" && preference.InAppEnabled);
+
+        using var updateRequest = new HttpRequestMessage(
+            HttpMethod.Put,
+            "/api/v1/notifications/preferences")
+        {
+            Content = JsonContent.Create(new
+            {
+                preferences = new[]
+                {
+                    new
+                    {
+                        type = "PAYMENT_RECORDED",
+                        inAppEnabled = false,
+                        pushEnabled = false,
+                        emailEnabled = false
+                    }
+                }
+            })
+        };
+        updateRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", friendToken);
+        var updateResponse = await _client.SendAsync(updateRequest);
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<NotificationPreferencesResponse>();
+        Assert.Contains(
+            updated!.Preferences,
+            preference => preference.Type == "PAYMENT_RECORDED" &&
+                          !preference.InAppEnabled &&
+                          !preference.PushEnabled &&
+                          !preference.EmailEnabled);
+
+        var uniqueTitle = $"Disabled notification {Guid.NewGuid()}";
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var notifications = scope.ServiceProvider.GetRequiredService<NotificationService>();
+            await notifications.PublishAsync(
+                [BffDatabaseInitializer.FriendUserId],
+                NotificationType.PaymentRecorded,
+                uniqueTitle,
+                "This notification has every channel disabled.",
+                "/debts",
+                CancellationToken.None);
+        }
+
+        using var listRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/notifications");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", friendToken);
+        var listResponse = await _client.SendAsync(listRequest);
+        listResponse.EnsureSuccessStatusCode();
+        var notificationsAfterUpdate = await listResponse.Content
+            .ReadFromJsonAsync<IReadOnlyList<NotificationResponse>>();
+        Assert.DoesNotContain(notificationsAfterUpdate!, notification => notification.Title == uniqueTitle);
+    }
+
+    [Fact]
+    public async Task PushSubscriptions_AreProtectedUserScopedAndRevocable()
+    {
+        var unauthorized = await _client.GetAsync("/api/v1/notifications/push/configuration");
+        Assert.Equal(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+
+        var token = await AuthenticateAsync(_client);
+        using var configurationRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/notifications/push/configuration");
+        configurationRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var configurationResponse = await _client.SendAsync(configurationRequest);
+        configurationResponse.EnsureSuccessStatusCode();
+        var configuration = await configurationResponse.Content
+            .ReadFromJsonAsync<PushNotificationConfigurationResponse>();
+        Assert.False(configuration?.IsConfigured);
+        Assert.Null(configuration?.PublicKey);
+
+        using var createRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/notifications/push/subscriptions")
+        {
+            Content = JsonContent.Create(new
+            {
+                endpoint = $"https://push.test.local/{Guid.NewGuid():N}",
+                p256Dh = "test-p256dh",
+                auth = "test-auth",
+                deviceName = "Test browser"
+            })
+        };
+        createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var createResponse = await _client.SendAsync(createRequest);
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<PushSubscriptionResponse>();
+        Assert.NotNull(created);
+        Assert.Equal("Test browser", created.DeviceName);
+
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/notifications/push/subscriptions");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var listResponse = await _client.SendAsync(listRequest);
+        listResponse.EnsureSuccessStatusCode();
+        var subscriptions = await listResponse.Content
+            .ReadFromJsonAsync<IReadOnlyList<PushSubscriptionResponse>>();
+        Assert.Contains(subscriptions!, subscription => subscription.Id == created.Id);
+
+        using var deleteRequest = new HttpRequestMessage(
+            HttpMethod.Delete,
+            $"/api/v1/notifications/push/subscriptions/{created.Id}");
+        deleteRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var deleteResponse = await _client.SendAsync(deleteRequest);
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task FinanceFacade_WithoutToken_ReturnsProblemDetails()
     {
         var response = await _client.GetAsync("/api/v1/finance/categories");

@@ -7,6 +7,7 @@ namespace FinanceControl.Bff.Notifications;
 public sealed class NotificationService(
     BffDbContext dbContext,
     IHubContext<NotificationHub> hubContext,
+    NotificationDeliveryDispatcher deliveryDispatcher,
     TimeProvider timeProvider,
     ILogger<NotificationService> logger)
 {
@@ -20,7 +21,7 @@ public sealed class NotificationService(
     {
         var query = dbContext.Notifications
             .AsNoTracking()
-            .Where(notification => notification.UserId == userId);
+            .Where(notification => notification.UserId == userId && notification.IsVisibleInApp);
         if (unreadOnly)
         {
             query = query.Where(notification => !notification.IsRead);
@@ -36,7 +37,7 @@ public sealed class NotificationService(
 
     public Task<int> GetUnreadCountAsync(Guid userId, CancellationToken cancellationToken) =>
         dbContext.Notifications.CountAsync(
-            notification => notification.UserId == userId && !notification.IsRead,
+            notification => notification.UserId == userId && notification.IsVisibleInApp && !notification.IsRead,
             cancellationToken);
 
     public async Task<NotificationResponse?> MarkAsReadAsync(
@@ -45,7 +46,9 @@ public sealed class NotificationService(
         CancellationToken cancellationToken)
     {
         var notification = await dbContext.Notifications.SingleOrDefaultAsync(
-            candidate => candidate.Id == notificationId && candidate.UserId == userId,
+            candidate => candidate.Id == notificationId &&
+                         candidate.UserId == userId &&
+                         candidate.IsVisibleInApp,
             cancellationToken);
         if (notification is null)
         {
@@ -60,7 +63,8 @@ public sealed class NotificationService(
     public async Task<int> MarkAllAsReadAsync(Guid userId, CancellationToken cancellationToken)
     {
         var notifications = await dbContext.Notifications
-            .Where(notification => notification.UserId == userId && !notification.IsRead)
+            .Where(notification =>
+                notification.UserId == userId && notification.IsVisibleInApp && !notification.IsRead)
             .ToListAsync(cancellationToken);
         var now = timeProvider.GetUtcNow();
         foreach (var notification in notifications)
@@ -128,15 +132,41 @@ public sealed class NotificationService(
             return 0;
         }
 
-        var recipients = await dbContext.Users
+        var recipientSettings = await dbContext.Users
             .AsNoTracking()
             .Where(user => requestedRecipients.Contains(user.Id))
-            .Select(user => user.Id)
+            .Select(user => new
+            {
+                user.Id,
+                user.PushNotificationsEnabled,
+                user.EmailNotificationsEnabled
+            })
             .ToListAsync(cancellationToken);
-        if (recipients.Count == 0)
+        if (recipientSettings.Count == 0)
         {
             return 0;
         }
+
+        var preferences = await dbContext.NotificationPreferences
+            .AsNoTracking()
+            .Where(preference =>
+                requestedRecipients.Contains(preference.UserId) && preference.Type == type)
+            .ToDictionaryAsync(preference => preference.UserId, cancellationToken);
+        var deliverySettings = recipientSettings
+            .Select(user =>
+            {
+                preferences.TryGetValue(user.Id, out var preference);
+                return new
+                {
+                    UserId = user.Id,
+                    InAppEnabled = preference?.InAppEnabled ?? true,
+                    PushEnabled = user.PushNotificationsEnabled && (preference?.PushEnabled ?? true),
+                    EmailEnabled = user.EmailNotificationsEnabled && (preference?.EmailEnabled ?? false)
+                };
+            })
+            .Where(settings => settings.InAppEnabled || settings.PushEnabled || settings.EmailEnabled)
+            .ToList();
+        var recipients = deliverySettings.Select(settings => settings.UserId).ToList();
 
         if (deduplicationKey is not null)
         {
@@ -155,21 +185,28 @@ public sealed class NotificationService(
         }
 
         var now = timeProvider.GetUtcNow();
-        var notifications = recipients
-            .Select(userId => new UserNotification(
-                userId,
+        var notifications = deliverySettings
+            .Where(settings => recipients.Contains(settings.UserId))
+            .Select(settings => new UserNotification(
+                settings.UserId,
                 type,
                 title,
                 message,
                 route,
                 now,
-                deduplicationKey))
+                deduplicationKey,
+                settings.InAppEnabled))
             .ToList();
         dbContext.Notifications.AddRange(notifications);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         foreach (var notification in notifications)
         {
+            if (!notification.IsVisibleInApp)
+            {
+                continue;
+            }
+
             try
             {
                 await hubContext.Clients
@@ -185,22 +222,18 @@ public sealed class NotificationService(
             }
         }
 
+        await deliveryDispatcher.DispatchAsync(notifications, cancellationToken);
+
         return notifications.Count;
     }
 
     private static NotificationResponse ToResponse(UserNotification notification) => new(
         notification.Id,
-        ToContractValue(notification.Type),
+        NotificationTypeCatalog.ToContractValue(notification.Type),
         notification.Title,
         notification.Message,
         notification.Route,
         notification.IsRead,
         notification.ReadAt,
         notification.CreatedAt);
-
-    private static string ToContractValue(NotificationType type) =>
-        string.Concat(type.ToString().Select((character, index) =>
-            index > 0 && char.IsUpper(character)
-                ? $"_{character}"
-                : character.ToString())).ToUpperInvariant();
 }

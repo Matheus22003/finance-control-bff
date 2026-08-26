@@ -12,6 +12,8 @@ public sealed class BffDbContext(DbContextOptions<BffDbContext> options)
 {
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
     public DbSet<UserNotification> Notifications => Set<UserNotification>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+    public DbSet<UserPushSubscription> PushSubscriptions => Set<UserPushSubscription>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
 
     protected override void OnModelCreating(ModelBuilder builder)
@@ -82,6 +84,37 @@ public sealed class BffDbContext(DbContextOptions<BffDbContext> options)
                 .IsUnique()
                 .HasFilter("\"DeduplicationKey\" IS NOT NULL");
             notification.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(candidate => candidate.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<NotificationPreference>(preference =>
+        {
+            preference.ToTable("notification_preferences");
+            preference.HasKey(candidate => new { candidate.UserId, candidate.Type });
+            preference.Property(candidate => candidate.Type)
+                .HasConversion<string>()
+                .HasMaxLength(40)
+                .IsRequired();
+            preference.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(candidate => candidate.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<UserPushSubscription>(subscription =>
+        {
+            subscription.ToTable("push_subscriptions");
+            subscription.HasKey(candidate => candidate.Id);
+            subscription.Property(candidate => candidate.Endpoint).HasMaxLength(2048).IsRequired();
+            subscription.Property(candidate => candidate.EndpointHash).HasMaxLength(64).IsRequired();
+            subscription.Property(candidate => candidate.P256Dh).HasMaxLength(512).IsRequired();
+            subscription.Property(candidate => candidate.Auth).HasMaxLength(512).IsRequired();
+            subscription.Property(candidate => candidate.DeviceName).HasMaxLength(200).IsRequired();
+            subscription.HasIndex(candidate => candidate.EndpointHash).IsUnique();
+            subscription.HasIndex(candidate => new { candidate.UserId, candidate.UpdatedAt });
+            subscription.HasOne<ApplicationUser>()
                 .WithMany()
                 .HasForeignKey(candidate => candidate.UserId)
                 .OnDelete(DeleteBehavior.Cascade);

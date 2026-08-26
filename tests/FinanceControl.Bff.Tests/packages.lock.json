@@ -595,6 +595,11 @@
           "Npgsql": "10.0.3"
         }
       },
+      "Portable.BouncyCastle": {
+        "type": "Transitive",
+        "resolved": "1.9.0",
+        "contentHash": "eZZBCABzVOek+id9Xy04HhmgykF0wZg9wpByzrWN7q8qEI0Qen9b7tfd7w8VA3dOeesumMG7C5ZPy0jk7PSRHw=="
+      },
       "Scalar.AspNetCore": {
         "type": "Transitive",
         "resolved": "2.16.17",
@@ -630,6 +635,14 @@
         "contentHash": "Mz6Y+s+uMQKj1H2BUF0OhlmaOQkLgSG34/IrUaBDirYBQ6bgwcFvO/XtXWcoDlBLFoFB0uKqDNhybHOd+fQK1A==",
         "dependencies": {
           "System.Security.Cryptography.Pkcs": "10.0.10"
+        }
+      },
+      "WebPush": {
+        "type": "Transitive",
+        "resolved": "1.0.13",
+        "contentHash": "Qyypsk6j+GqncCa/IgbmZLnL7DxqKFGz3jIdquGSLeiD3NtN+HPnIFBMwIJHffDU9ZEztTkaMMYxvW3PJxJL7Q==",
+        "dependencies": {
+          "Portable.BouncyCastle": "1.9.0"
         }
       },
       "xunit.abstractions": {
@@ -683,7 +696,8 @@
           "Microsoft.OpenApi": "[2.11.0, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.3, )",
           "Scalar.AspNetCore": "[2.16.17, )",
-          "Swashbuckle.AspNetCore.SwaggerUI": "[10.2.3, )"
+          "Swashbuckle.AspNetCore.SwaggerUI": "[10.2.3, )",
+          "WebPush": "[1.0.13, )"
         }
       }
     }
