@@ -32,6 +32,40 @@ public sealed class DebtServiceClientTests
     }
 
     [Fact]
+    public async Task GetReportAsync_ForwardsPeriodAndDeserializesAnalytics()
+    {
+        const string json = """
+                            {
+                              "fromDate": "2026-01-01",
+                              "toDate": "2026-06-30",
+                              "totalVolume": 900.00,
+                              "totalOwed": 300.00,
+                              "totalToReceive": 150.00,
+                              "openDebtsCount": 4,
+                              "paidDebtsCount": 2,
+                              "months": [],
+                              "categories": [],
+                              "topDebts": []
+                            }
+                            """;
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        });
+        var client = CreateClient(handler);
+
+        var report = await client.GetReportAsync(
+            new DateOnly(2026, 1, 1),
+            new DateOnly(2026, 6, 30),
+            CancellationToken.None);
+
+        Assert.Equal(300m, report.TotalOwed);
+        Assert.Equal(150m, report.TotalToReceive);
+        Assert.Equal("/api/v1/debts/reports/overview", handler.LastRequestUri?.AbsolutePath);
+        Assert.Equal("?from=2026-01-01&to=2026-06-30", handler.LastRequestUri?.Query);
+    }
+
+    [Fact]
     public async Task AccountDeletionLifecycle_UsesInternalAccountEndpoints()
     {
         const string json = """

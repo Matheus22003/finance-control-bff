@@ -58,6 +58,38 @@ public sealed class FinanceServiceClientTests
     }
 
     [Fact]
+    public async Task GetReportAsync_ForwardsPeriodAndDeserializesAnalytics()
+    {
+        const string json = """
+                            {
+                              "fromMonth": "2026-01",
+                              "toMonth": "2026-06",
+                              "totalIncome": 12000.00,
+                              "totalExpenses": 7500.00,
+                              "balance": 4500.00,
+                              "savingsRatePercentage": 37.50,
+                              "incomeCount": 6,
+                              "expenseCount": 18,
+                              "months": [],
+                              "expenseCategories": [],
+                              "topExpenses": []
+                            }
+                            """;
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        });
+        var client = CreateClient(handler);
+
+        var report = await client.GetReportAsync("2026-01", "2026-06", CancellationToken.None);
+
+        Assert.Equal(4_500m, report.Balance);
+        Assert.Equal(37.50m, report.SavingsRatePercentage);
+        Assert.Equal("/api/v1/finance/reports/overview", handler.LastRequestUri?.AbsolutePath);
+        Assert.Equal("?from=2026-01&to=2026-06", handler.LastRequestUri?.Query);
+    }
+
+    [Fact]
     public async Task CreateExpenseAsync_ForwardsContractAndDeserializesResponse()
     {
         var id = Guid.Parse("e54edb88-3dc2-4534-b95b-f9c845683252");

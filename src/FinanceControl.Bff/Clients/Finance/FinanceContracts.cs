@@ -178,3 +178,36 @@ public sealed record CashFlowProjectionResponse(
     decimal TotalProjectedExpenses,
     decimal ProjectedCumulativeBalance,
     IReadOnlyList<CashFlowProjectionMonthResponse> Items);
+
+public sealed record FinanceReportResponse(
+    string FromMonth,
+    string ToMonth,
+    decimal TotalIncome,
+    decimal TotalExpenses,
+    decimal Balance,
+    decimal SavingsRatePercentage,
+    long IncomeCount,
+    long ExpenseCount,
+    IReadOnlyList<FinanceReportMonthResponse> Months,
+    IReadOnlyList<FinanceReportCategoryResponse> ExpenseCategories,
+    IReadOnlyList<FinanceReportExpenseResponse> TopExpenses);
+
+public sealed record FinanceReportMonthResponse(
+    string ReferenceMonth,
+    decimal TotalIncome,
+    decimal TotalExpenses,
+    decimal Balance);
+
+public sealed record FinanceReportCategoryResponse(
+    string Category,
+    string Name,
+    decimal Amount,
+    decimal Percentage);
+
+public sealed record FinanceReportExpenseResponse(
+    Guid Id,
+    string Description,
+    decimal Amount,
+    DateOnly TransactionDate,
+    string Category,
+    string CategoryName);

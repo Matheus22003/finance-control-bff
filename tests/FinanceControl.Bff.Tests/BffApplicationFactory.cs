@@ -88,6 +88,29 @@ public sealed class BffApplicationFactory : WebApplicationFactory<Program>
             return Task.FromResult(categories);
         }
 
+        public override Task<FinanceReportResponse> GetReportAsync(
+            string fromMonth,
+            string toMonth,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new FinanceReportResponse(
+                fromMonth,
+                toMonth,
+                1_200m,
+                700m,
+                500m,
+                41.67m,
+                1,
+                2,
+                [new FinanceReportMonthResponse("2026-01", 1_200m, 700m, 500m)],
+                [new FinanceReportCategoryResponse("FOOD", "Alimentação", 700m, 100m)],
+                [new FinanceReportExpenseResponse(
+                    Guid.Parse("716963d9-e79b-42ca-bbc7-e99c3fb8f438"),
+                    "Supermercado",
+                    700m,
+                    new DateOnly(2026, 1, 15),
+                    "FOOD",
+                    "Alimentação")]));
+
         public override Task<IReadOnlyList<IncomeResponse>> GetIncomesAsync(
             CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<IncomeResponse>>([]);
@@ -142,6 +165,31 @@ public sealed class BffApplicationFactory : WebApplicationFactory<Program>
                     0m,
                     new DateOnly(2026, 7, 1),
                     true)]));
+
+        public override Task<DebtReportResponse> GetReportAsync(
+            DateOnly from,
+            DateOnly to,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new DebtReportResponse(
+                from,
+                to,
+                450m,
+                200m,
+                80m,
+                2,
+                1,
+                [new DebtReportMonthResponse("2026-01", 450m, 200m, 80m, 3)],
+                [new DebtReportCategoryResponse("TRAVEL", 450m, 200m, 80m, 3)],
+                [new DebtReportItemResponse(
+                    Guid.Parse("e6df8be5-0266-434d-b281-3546c91d661f"),
+                    "Viagem compartilhada",
+                    "TRAVEL",
+                    450m,
+                    200m,
+                    80m,
+                    "OPEN",
+                    null,
+                    new DateTimeOffset(2026, 1, 10, 12, 0, 0, TimeSpan.Zero))]));
 
         public override Task<SimplifiedSettlementResponse> GetSimplifiedSettlementsAsync(
             Guid? groupId,
