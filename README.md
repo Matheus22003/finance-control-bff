@@ -37,7 +37,7 @@ Todos os demais endpoints exigem JWT.
 | Finance | resumo, tendência, projeção de caixa, metas com aportes manuais ou vinculados ao saldo disponível de receitas, detalhamento da distribuição de cada receita, categorias padrão e personalizadas, filtros, CRUD de receitas/despesas, recorrências e orçamento mensal em `/api/v1/finance` |
 | Pessoas | CRUD em `/api/v1/people` |
 | Dívidas | resumo, CRUD, pagamentos, histórico e registro/confirmação do plano simplificado em `/api/v1/debts` |
-| Notificações | caixa persistente, sincronização de alertas, leitura e contagem em `/api/v1/notifications`; hub em `/api/v1/notifications/hub` |
+| Notificações | caixa persistente, preferências por evento/canal, dispositivos Web Push, sincronização, leitura e contagem em `/api/v1/notifications`; hub em `/api/v1/notifications/hub` |
 | Segurança | troca de senha em `POST /api/v1/auth/change-password` e gestão em `/api/v1/auth/sessions` |
 
 Na área de conta, `/api/v1/users/me` oferece perfil, preferências, avatar, troca de e-mail, exportação e exclusão.
@@ -55,6 +55,33 @@ O BFF persiste notificações direcionadas aos usuários envolvidos em amizades,
 `POST /api/v1/notifications/sync` reavalia orçamento e metas no estado atual. Cada regra usa uma chave persistente de deduplicação, portanto abrir o site, reconectar o SignalR ou colocar um futuro aplicativo em primeiro plano não repete um alerta já emitido para o mesmo evento.
 
 O evento em tempo real é um aviso de mudança; os clientes sempre consultam novamente os endpoints REST protegidos para obter o estado oficial. Essa combinação entre sincronização REST e entrega SignalR pode ser reutilizada por clientes web e mobile. O token do hub é aceito pela query string somente no caminho restrito `/api/v1/notifications/hub`, conforme a limitação dos transportes WebSocket/SSE no navegador.
+
+Cada um dos 24 tipos de evento possui preferências independentes para caixa do
+aplicativo, Web Push e e-mail. A caixa começa habilitada, Push respeita também o
+interruptor global da conta e e-mail granular começa desabilitado para evitar
+mensagens inesperadas. As preferências ficam em
+`notification_preferences`; as inscrições de navegador ficam em
+`push_subscriptions`, sempre vinculadas ao usuário autenticado.
+
+Os endpoints protegidos `GET/PUT /api/v1/notifications/preferences` gerenciam a
+matriz de canais. `GET/POST/DELETE /api/v1/notifications/push/subscriptions`
+gerenciam dispositivos sem devolver endpoint ou chaves privadas ao cliente. O
+BFF usa `WebPush` `1.0.13` e remove automaticamente inscrições expiradas quando
+o provedor responde `404` ou `410`.
+
+Para ativar Web Push em produção, configure um único par VAPID por ambiente:
+
+```text
+WebPush__Enabled=true
+WebPush__Subject=mailto:owner@example.org
+WebPush__PublicKey=sua-chave-publica-vapid
+WebPush__PrivateKey=sua-chave-privada-vapid
+```
+
+Somente a chave pública é entregue ao Angular. A chave privada permanece no
+BFF e não deve ser registrada no Git. Um futuro cliente iOS/Android pode
+reutilizar as mesmas preferências e eventos; apenas o adaptador de dispositivo
+será ampliado para APNs/FCM.
 
 ## Observabilidade
 

@@ -13,7 +13,8 @@ public sealed class UserNotification
         string message,
         string? route,
         DateTimeOffset createdAt,
-        string? deduplicationKey = null)
+        string? deduplicationKey = null,
+        bool isVisibleInApp = true)
     {
         Id = Guid.NewGuid();
         UserId = userId;
@@ -25,6 +26,7 @@ public sealed class UserNotification
             ? null
             : deduplicationKey.Trim();
         CreatedAt = createdAt;
+        IsVisibleInApp = isVisibleInApp;
     }
 
     public Guid Id { get; private set; }
@@ -42,6 +44,8 @@ public sealed class UserNotification
     public string? DeduplicationKey { get; private set; }
 
     public bool IsRead { get; private set; }
+
+    public bool IsVisibleInApp { get; private set; } = true;
 
     public DateTimeOffset? ReadAt { get; private set; }
 
