@@ -178,6 +178,31 @@ public sealed class ApiTests(BffApplicationFactory factory) : IClassFixture<BffA
     }
 
     [Fact]
+    public async Task NotificationHub_AcceptsPreflightFromConfiguredFrontendOrigin()
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Options,
+            "/api/v1/notifications/hub/negotiate");
+        request.Headers.Add("Origin", "https://finance-control-frontend-gamma.vercel.app");
+        request.Headers.Add("Access-Control-Request-Method", "POST");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var headers = response.Headers.Concat(response.Content.Headers).ToArray();
+        Assert.True(
+            headers.Any(header => header.Key == "Access-Control-Allow-Origin"),
+            string.Join("; ", headers.Select(header => $"{header.Key}={string.Join(',', header.Value)}")));
+        var allowedOrigins = headers
+            .Single(header => header.Key == "Access-Control-Allow-Origin")
+            .Value;
+        Assert.Equal("https://finance-control-frontend-gamma.vercel.app", allowedOrigins.Single());
+        Assert.Contains(
+            "POST",
+            response.Headers.GetValues("Access-Control-Allow-Methods").Single());
+    }
+
+    [Fact]
     public async Task Notifications_ArePersistentUserScopedAndCanBeMarkedAsRead()
     {
         var uniqueTitle = $"Notification {Guid.NewGuid()}";
