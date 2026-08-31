@@ -191,6 +191,25 @@ builder.Services
         "External AI requires an HTTPS Ai:BaseUrl, Ai:ApiKey and Ai:Model.")
     .ValidateOnStart();
 
+var notificationHubAllowedOrigin = builder.Configuration.GetValue<string>("Cors:AllowedOrigin")
+    ?? throw new InvalidOperationException("Cors:AllowedOrigin must be configured.");
+
+if (!Uri.TryCreate(notificationHubAllowedOrigin, UriKind.Absolute, out _))
+{
+    throw new InvalidOperationException("Cors:AllowedOrigin must be an absolute URI.");
+}
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("notification-hub", policy =>
+    {
+        policy
+            .WithOrigins(notificationHubAllowedOrigin)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer();
@@ -416,6 +435,8 @@ if (!app.Environment.IsEnvironment("Testing"))
     app.UseHttpsRedirection();
 }
 
+app.UseRouting();
+app.UseCors("notification-hub");
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
@@ -465,7 +486,9 @@ apiV1.MapReportEndpoints();
 apiV1.MapUserEndpoints();
 apiV1.MapSocialEndpoints();
 apiV1.MapNotificationEndpoints();
-apiV1.MapHub<NotificationHub>("/notifications/hub").RequireAuthorization();
+apiV1.MapHub<NotificationHub>("/notifications/hub")
+    .RequireCors("notification-hub")
+    .RequireAuthorization();
 
 app.Run();
 
