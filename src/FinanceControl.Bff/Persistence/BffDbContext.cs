@@ -48,6 +48,7 @@ public sealed class BffDbContext(DbContextOptions<BffDbContext> options)
             session.HasKey(candidate => candidate.Id);
             session.Property(candidate => candidate.RefreshTokenHash).HasMaxLength(64).IsRequired();
             session.Property(candidate => candidate.DeviceName).HasMaxLength(200).IsRequired();
+            session.Property(candidate => candidate.DeviceInstallationId).HasMaxLength(64);
             session.Property(candidate => candidate.IpAddress).HasMaxLength(64);
             session.Property(candidate => candidate.RevokedAt).IsConcurrencyToken();
             session.HasIndex(candidate => candidate.RefreshTokenHash).IsUnique();
