@@ -774,6 +774,104 @@ public sealed class ApiTests(BffApplicationFactory factory) : IClassFixture<BffA
     }
 
     [Fact]
+    public async Task MobileSession_UsesBoundRotatingRefreshTokensWithoutCookies()
+    {
+        const string installationId = "7d88b32d-130b-47f0-835f-79d871867d31";
+        var loginResponse = await _client.PostAsJsonAsync("/api/v1/auth/mobile/login", new
+        {
+            email = BffApplicationFactory.DemoEmail,
+            password = BffApplicationFactory.DemoPassword,
+            deviceInstallationId = installationId,
+            deviceName = "Pixel 9",
+            platform = "android",
+            appVersion = "1.0.0"
+        });
+
+        loginResponse.EnsureSuccessStatusCode();
+        Assert.False(loginResponse.Headers.TryGetValues("Set-Cookie", out _));
+        using var loginJson = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync());
+        var originalRefreshToken = loginJson.RootElement.GetProperty("refreshToken").GetString();
+        var originalAccessToken = loginJson.RootElement.GetProperty("accessToken").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(originalRefreshToken));
+        Assert.False(string.IsNullOrWhiteSpace(originalAccessToken));
+        Assert.Equal(installationId, loginJson.RootElement.GetProperty("deviceInstallationId").GetString());
+
+        var wrongDeviceResponse = await _client.PostAsJsonAsync("/api/v1/auth/mobile/refresh", new
+        {
+            refreshToken = originalRefreshToken,
+            deviceInstallationId = "1d4d32e8-0cc2-4f57-ab57-797348c8d6d1"
+        });
+        Assert.Equal(HttpStatusCode.Unauthorized, wrongDeviceResponse.StatusCode);
+
+        var refreshResponse = await _client.PostAsJsonAsync("/api/v1/auth/mobile/refresh", new
+        {
+            refreshToken = originalRefreshToken,
+            deviceInstallationId = installationId
+        });
+        refreshResponse.EnsureSuccessStatusCode();
+        Assert.False(refreshResponse.Headers.TryGetValues("Set-Cookie", out _));
+        using var refreshJson = JsonDocument.Parse(await refreshResponse.Content.ReadAsStringAsync());
+        var rotatedRefreshToken = refreshJson.RootElement.GetProperty("refreshToken").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(rotatedRefreshToken));
+        Assert.NotEqual(originalRefreshToken, rotatedRefreshToken);
+
+        var replayResponse = await _client.PostAsJsonAsync("/api/v1/auth/mobile/refresh", new
+        {
+            refreshToken = originalRefreshToken,
+            deviceInstallationId = installationId
+        });
+        Assert.Equal(HttpStatusCode.Unauthorized, replayResponse.StatusCode);
+
+        var familyResponse = await _client.PostAsJsonAsync("/api/v1/auth/mobile/refresh", new
+        {
+            refreshToken = rotatedRefreshToken,
+            deviceInstallationId = installationId
+        });
+        Assert.Equal(HttpStatusCode.Unauthorized, familyResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task MobileLogout_RevokesOnlyThePresentedDeviceSession()
+    {
+        const string installationId = "34e05f31-dfdb-4a11-979b-78ec92d9d066";
+        var loginResponse = await _client.PostAsJsonAsync("/api/v1/auth/mobile/login", new
+        {
+            email = BffApplicationFactory.DemoEmail,
+            password = BffApplicationFactory.DemoPassword,
+            deviceInstallationId = installationId,
+            deviceName = "iPhone",
+            platform = "ios",
+            appVersion = "1.0.0"
+        });
+        loginResponse.EnsureSuccessStatusCode();
+        using var loginJson = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync());
+        var refreshToken = loginJson.RootElement.GetProperty("refreshToken").GetString();
+
+        var rotatedResponse = await _client.PostAsJsonAsync("/api/v1/auth/mobile/refresh", new
+        {
+            refreshToken,
+            deviceInstallationId = installationId
+        });
+        rotatedResponse.EnsureSuccessStatusCode();
+        using var rotatedJson = JsonDocument.Parse(await rotatedResponse.Content.ReadAsStringAsync());
+        var rotatedRefreshToken = rotatedJson.RootElement.GetProperty("refreshToken").GetString();
+
+        var logoutResponse = await _client.PostAsJsonAsync("/api/v1/auth/mobile/logout", new
+        {
+            refreshToken,
+            deviceInstallationId = installationId
+        });
+        Assert.Equal(HttpStatusCode.NoContent, logoutResponse.StatusCode);
+
+        var refreshResponse = await _client.PostAsJsonAsync("/api/v1/auth/mobile/refresh", new
+        {
+            refreshToken = rotatedRefreshToken,
+            deviceInstallationId = installationId
+        });
+        Assert.Equal(HttpStatusCode.Unauthorized, refreshResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task Refresh_RotatesTokenAndRejectsReusedTokenFamily()
     {
         using var client = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions

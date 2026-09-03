@@ -13,5 +13,6 @@ public sealed class UserSession
     public DateTimeOffset? RevokedAt { get; set; }
     public Guid? ReplacedBySessionId { get; set; }
     public string DeviceName { get; init; } = string.Empty;
+    public string? DeviceInstallationId { get; init; }
     public string? IpAddress { get; init; }
 }

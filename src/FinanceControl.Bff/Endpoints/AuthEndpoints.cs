@@ -22,6 +22,12 @@ public static class AuthEndpoints
             .Produces<RegistrationResponse>(202).ProducesValidationProblem().ProducesProblem(409);
         group.MapPost("/auth/login", Login).AllowAnonymous().RequireRateLimiting("auth-sensitive").WithTags("Auth")
             .Produces<LoginResponse>().ProducesValidationProblem().ProducesProblem(401).ProducesProblem(403);
+        group.MapPost("/auth/mobile/login", MobileLogin).AllowAnonymous().RequireRateLimiting("auth-sensitive").WithTags("Mobile Auth")
+            .Produces<MobileSessionResponse>().ProducesValidationProblem().ProducesProblem(401).ProducesProblem(403);
+        group.MapPost("/auth/mobile/refresh", MobileRefresh).AllowAnonymous().RequireRateLimiting("auth-refresh").WithTags("Mobile Auth")
+            .Produces<MobileSessionResponse>().ProducesValidationProblem().ProducesProblem(401);
+        group.MapPost("/auth/mobile/logout", MobileLogout).AllowAnonymous().RequireRateLimiting("auth-refresh").WithTags("Mobile Auth")
+            .Produces(204).ProducesValidationProblem();
         group.MapPost("/auth/refresh", Refresh).AllowAnonymous().RequireRateLimiting("auth-refresh").WithTags("Auth")
             .Produces<LoginResponse>().ProducesProblem(401);
         group.MapPost("/auth/confirm-email", ConfirmEmail).AllowAnonymous()
@@ -117,6 +123,103 @@ public static class AuthEndpoints
 
         return await CreateSessionResponse(context, user, dbContext, tokenService,
             refreshTokenService, options.Value, timeProvider.GetUtcNow());
+    }
+
+    private static async Task<IResult> MobileLogin(
+        MobileLoginRequest request,
+        HttpContext context,
+        UserManager<ApplicationUser> userManager,
+        BffDbContext dbContext,
+        TokenService tokenService,
+        RefreshTokenService refreshTokenService,
+        IOptions<AuthSessionOptions> options,
+        TimeProvider timeProvider)
+    {
+        var errors = ValidateMobileLogin(request);
+        if (errors.Count > 0) return Results.ValidationProblem(errors);
+
+        var user = await userManager.FindByEmailAsync(request.Email.Trim());
+        if (user is null || !await userManager.CheckPasswordAsync(user, request.Password))
+            return Results.Problem(statusCode: 401, title: "Invalid credentials",
+                detail: "The supplied email or password is invalid.");
+        if (!user.EmailConfirmed)
+            return Results.Problem(statusCode: 403, title: "Email not confirmed",
+                detail: "Confirm your email address before signing in.");
+
+        var now = timeProvider.GetUtcNow();
+        var refresh = refreshTokenService.Create();
+        var session = BuildSession(context, user, refresh, options.Value, now, Guid.NewGuid(),
+            request.DeviceInstallationId.Trim(), FormatMobileDeviceName(request));
+        dbContext.UserSessions.Add(session);
+        await dbContext.SaveChangesAsync();
+        return Results.Ok(CreateMobileSessionResponse(tokenService, user, session, refresh.Value));
+    }
+
+    private static async Task<IResult> MobileRefresh(
+        MobileRefreshRequest request,
+        HttpContext context,
+        BffDbContext dbContext,
+        TokenService tokenService,
+        RefreshTokenService refreshTokenService,
+        IOptions<AuthSessionOptions> options,
+        TimeProvider timeProvider)
+    {
+        var errors = ValidateMobileRefresh(request);
+        if (errors.Count > 0) return Results.ValidationProblem(errors);
+
+        var previous = await dbContext.UserSessions.Include(session => session.User)
+            .SingleOrDefaultAsync(session => session.RefreshTokenHash == refreshTokenService.Hash(request.RefreshToken));
+        var now = timeProvider.GetUtcNow();
+        if (previous is null || !string.Equals(previous.DeviceInstallationId, request.DeviceInstallationId.Trim(), StringComparison.Ordinal))
+            return InvalidRefreshToken();
+        if (!previous.User.EmailConfirmed || previous.ExpiresAt <= now)
+        {
+            previous.RevokedAt = now;
+            await dbContext.SaveChangesAsync();
+            return InvalidRefreshToken();
+        }
+        if (previous.RevokedAt is not null)
+        {
+            await RevokeSessionFamilyAsync(previous.FamilyId, dbContext, now);
+            return InvalidRefreshToken();
+        }
+
+        var refresh = refreshTokenService.Create();
+        var next = BuildSession(context, previous.User, refresh, options.Value, now, previous.FamilyId,
+            previous.DeviceInstallationId, previous.DeviceName);
+        previous.RevokedAt = now;
+        previous.LastUsedAt = now;
+        previous.ReplacedBySessionId = next.Id;
+        dbContext.UserSessions.Add(next);
+        try
+        {
+            await dbContext.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return InvalidRefreshToken();
+        }
+
+        return Results.Ok(CreateMobileSessionResponse(tokenService, previous.User, next, refresh.Value));
+    }
+
+    private static async Task<IResult> MobileLogout(
+        MobileRefreshRequest request,
+        BffDbContext dbContext,
+        RefreshTokenService refreshTokenService,
+        TimeProvider timeProvider)
+    {
+        var errors = ValidateMobileRefresh(request);
+        if (errors.Count > 0) return Results.ValidationProblem(errors);
+
+        var session = await dbContext.UserSessions.SingleOrDefaultAsync(candidate =>
+            candidate.RefreshTokenHash == refreshTokenService.Hash(request.RefreshToken) &&
+            candidate.DeviceInstallationId == request.DeviceInstallationId.Trim());
+        if (session is not null)
+        {
+            await RevokeSessionFamilyAsync(session.FamilyId, dbContext, timeProvider.GetUtcNow());
+        }
+        return Results.NoContent();
     }
 
     private static async Task<IResult> Refresh(
@@ -405,7 +508,8 @@ public static class AuthEndpoints
     }
 
     private static UserSession BuildSession(HttpContext context, ApplicationUser user,
-        RefreshToken refresh, AuthSessionOptions options, DateTimeOffset now, Guid familyId) => new()
+        RefreshToken refresh, AuthSessionOptions options, DateTimeOffset now, Guid familyId,
+        string? deviceInstallationId = null, string? deviceName = null) => new()
         {
             Id = Guid.NewGuid(),
             FamilyId = familyId,
@@ -415,7 +519,8 @@ public static class AuthEndpoints
             CreatedAt = now,
             LastUsedAt = now,
             ExpiresAt = now.AddDays(options.RefreshTokenDays),
-            DeviceName = GetDeviceName(context.Request.Headers.UserAgent.ToString()),
+            DeviceName = deviceName ?? GetDeviceName(context.Request.Headers.UserAgent.ToString()),
+            DeviceInstallationId = deviceInstallationId,
             IpAddress = Truncate(context.Connection.RemoteIpAddress?.ToString(), 64, null)
         };
 
@@ -424,6 +529,24 @@ public static class AuthEndpoints
         var access = tokenService.CreateToken(user.Id, user.Email!, sessionId);
         return new LoginResponse(access.Value, "Bearer", access.ExpiresAt,
             new AuthUserResponse(user.Id, user.Email!, user.DisplayName));
+    }
+
+    private static MobileSessionResponse CreateMobileSessionResponse(TokenService tokenService,
+        ApplicationUser user, UserSession session, string refreshToken)
+    {
+        var access = tokenService.CreateToken(user.Id, user.Email!, session.Id);
+        return new MobileSessionResponse(access.Value, refreshToken, "Bearer", access.ExpiresAt,
+            session.DeviceInstallationId!, new AuthUserResponse(user.Id, user.Email!, user.DisplayName));
+    }
+
+    private static async Task RevokeSessionFamilyAsync(Guid familyId, BffDbContext dbContext,
+        DateTimeOffset revokedAt)
+    {
+        var activeSessions = await dbContext.UserSessions
+            .Where(session => session.FamilyId == familyId && session.RevokedAt == null)
+            .ToListAsync();
+        foreach (var session in activeSessions) session.RevokedAt = revokedAt;
+        await dbContext.SaveChangesAsync();
     }
 
     private static void WriteRefreshCookie(HttpContext context, AuthSessionOptions options,
@@ -495,6 +618,33 @@ public static class AuthEndpoints
         Guid.Parse(user.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
     private static Guid GetSessionId(ClaimsPrincipal user) =>
         Guid.Parse(user.FindFirstValue(JwtRegisteredClaimNames.Sid)!);
+
+    private static Dictionary<string, string[]> ValidateMobileLogin(MobileLoginRequest request)
+    {
+        var errors = ValidateLogin(new LoginRequest(request.Email, request.Password));
+        if (!Guid.TryParse(request.DeviceInstallationId, out _))
+            errors["deviceInstallationId"] = ["Device installation id must be a UUID."];
+        if (string.IsNullOrWhiteSpace(request.DeviceName) || request.DeviceName.Trim().Length > 120)
+            errors["deviceName"] = ["Device name is required and must contain at most 120 characters."];
+        if (!string.Equals(request.Platform, "android", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(request.Platform, "ios", StringComparison.OrdinalIgnoreCase))
+            errors["platform"] = ["Platform must be android or ios."];
+        if (string.IsNullOrWhiteSpace(request.AppVersion) || request.AppVersion.Trim().Length > 40)
+            errors["appVersion"] = ["App version is required and must contain at most 40 characters."];
+        return errors;
+    }
+
+    private static Dictionary<string, string[]> ValidateMobileRefresh(MobileRefreshRequest request)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(request.RefreshToken)) errors["refreshToken"] = ["Refresh token is required."];
+        if (!Guid.TryParse(request.DeviceInstallationId, out _))
+            errors["deviceInstallationId"] = ["Device installation id must be a UUID."];
+        return errors;
+    }
+
+    private static string FormatMobileDeviceName(MobileLoginRequest request) =>
+        $"{request.DeviceName.Trim()} · {request.Platform.Trim().ToLowerInvariant()} {request.AppVersion.Trim()}";
 
     private static Dictionary<string, string[]> ValidateLogin(LoginRequest request)
     {
