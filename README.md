@@ -2,6 +2,28 @@
 
 Backend for Frontend responsável pela autenticação, segurança, fachadas CRUD e agregação dos serviços Finance e Debt. O frontend Angular acessa somente este serviço.
 
+## Posição na arquitetura
+
+O BFF é a única API pública consumida pelo frontend web e pelo app mobile. Ele
+valida a sessão, aplica autorização, agrega os domínios e encaminha chamadas
+internas para Finance Service e Debt Service. Clientes nunca acessam os
+microserviços diretamente.
+
+### Mapa do projeto
+
+| Repositório | Papel |
+|---|---|
+| [`finance-control-frontend`](https://github.com/Matheus22003/finance-control-frontend) | Cliente web Angular |
+| [`finance-control-mobile`](https://github.com/Matheus22003/finance-control-mobile) | Cliente nativo Expo |
+| `finance-control-bff` | API pública e gateway |
+| [`finance-control-finance-service`](https://github.com/Matheus22003/finance-control-finance-service) | Receitas, despesas e planejamento |
+| [`finance-control-debt-service`](https://github.com/Matheus22003/finance-control-debt-service) | Pessoas, grupos e dívidas |
+| [`finance-control-infra`](https://github.com/Matheus22003/finance-control-infra) | Ambiente integrado e deploy |
+| [`finance-control-docs`](https://github.com/Matheus22003/finance-control-docs) | Contratos e operação |
+
+Contratos públicos versionados ficam em `openapi/openapi-v1.json`; mudanças de
+contrato devem ser avaliadas junto dos clientes e dos dois serviços de domínio.
+
 ## Stack
 
 - .NET 10
