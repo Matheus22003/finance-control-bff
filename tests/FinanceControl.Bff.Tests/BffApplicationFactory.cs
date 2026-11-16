@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 
 namespace FinanceControl.Bff.Tests;
 
@@ -15,6 +16,17 @@ public sealed class BffApplicationFactory : WebApplicationFactory<Program>
 {
     public const string DemoEmail = "demo@test.local";
     public const string DemoPassword = "TestPassword123!";
+
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        var host = base.CreateHost(builder);
+        using var scope = host.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<BffDatabaseInitializer>()
+            .InitializeAsync()
+            .GetAwaiter()
+            .GetResult();
+        return host;
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {

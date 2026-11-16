@@ -342,7 +342,9 @@ builder.Services.AddRateLimiter(options =>
             "RateLimiting:AuthSensitivePermitLimit must be greater than zero.");
     }
 
-    var refreshPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 30;
+    var refreshPermitLimit = builder.Configuration.GetValue(
+        "RateLimiting:AuthRefreshPermitLimit",
+        builder.Environment.IsEnvironment("Testing") ? 1_000 : 30);
     var aiAnalysisPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 5;
     var aiQuestionPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 15;
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -420,8 +422,9 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 var app = builder.Build();
 
-await using (var scope = app.Services.CreateAsyncScope())
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    await using var scope = app.Services.CreateAsyncScope();
     await scope.ServiceProvider.GetRequiredService<BffDatabaseInitializer>().InitializeAsync();
 }
 
