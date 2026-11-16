@@ -43,6 +43,7 @@ public sealed class BffApplicationFactory : WebApplicationFactory<Program>
                 ["DemoUser:Password"] = DemoPassword,
                 ["DemoUser:FriendEmail"] = "friend@test.local",
                 ["DemoUser:FriendPassword"] = DemoPassword,
+                ["Testing:SkipDatabaseInitialization"] = "true",
                 ["ConnectionStrings:BffDatabase"] = "Host=localhost;Database=bff_tests;Username=test;Password=test",
                 ["FinanceService:BaseUrl"] = "http://finance-service.test",
                 ["FinanceService:TimeoutSeconds"] = "2",
@@ -60,6 +61,7 @@ public sealed class BffApplicationFactory : WebApplicationFactory<Program>
         {
             var databaseName = $"bff-tests-{Guid.NewGuid()}";
             services.RemoveAll<DbContextOptions<BffDbContext>>();
+            services.RemoveAll<Microsoft.EntityFrameworkCore.Infrastructure.IDbContextOptionsConfiguration<BffDbContext>>();
             services.RemoveAll<BffDbContext>();
             services.AddDbContext<BffDbContext>(options =>
                 options.UseInMemoryDatabase(databaseName));
