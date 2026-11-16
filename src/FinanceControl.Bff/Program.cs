@@ -345,6 +345,12 @@ builder.Services.AddRateLimiter(options =>
     var refreshPermitLimit = builder.Configuration.GetValue(
         "RateLimiting:AuthRefreshPermitLimit",
         builder.Environment.IsEnvironment("Testing") ? 1_000 : 30);
+    if (refreshPermitLimit < 1)
+    {
+        throw new InvalidOperationException(
+            "RateLimiting:AuthRefreshPermitLimit must be greater than zero.");
+    }
+
     var aiAnalysisPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 5;
     var aiQuestionPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 15;
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
