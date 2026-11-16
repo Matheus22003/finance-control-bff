@@ -14,6 +14,7 @@ public sealed class BffDbContext(DbContextOptions<BffDbContext> options)
     public DbSet<UserNotification> Notifications => Set<UserNotification>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
     public DbSet<UserPushSubscription> PushSubscriptions => Set<UserPushSubscription>();
+    public DbSet<UserMobilePushDevice> MobilePushDevices => Set<UserMobilePushDevice>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
 
     protected override void OnModelCreating(ModelBuilder builder)
@@ -116,6 +117,28 @@ public sealed class BffDbContext(DbContextOptions<BffDbContext> options)
             subscription.HasIndex(candidate => candidate.EndpointHash).IsUnique();
             subscription.HasIndex(candidate => new { candidate.UserId, candidate.UpdatedAt });
             subscription.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(candidate => candidate.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<UserMobilePushDevice>(device =>
+        {
+            device.ToTable("mobile_push_devices");
+            device.HasKey(candidate => candidate.Id);
+            device.Property(candidate => candidate.InstallationId).HasMaxLength(64).IsRequired();
+            device.Property(candidate => candidate.Platform).HasMaxLength(16).IsRequired();
+            device.Property(candidate => candidate.ExpoPushToken).HasMaxLength(200).IsRequired();
+            device.Property(candidate => candidate.DeviceName).HasMaxLength(120);
+            device.Property(candidate => candidate.AppVersion).HasMaxLength(40);
+            device.HasIndex(candidate => new
+            {
+                candidate.UserId,
+                candidate.InstallationId,
+                candidate.Platform
+            }).IsUnique();
+            device.HasIndex(candidate => new { candidate.UserId, candidate.UpdatedAt });
+            device.HasOne<ApplicationUser>()
                 .WithMany()
                 .HasForeignKey(candidate => candidate.UserId)
                 .OnDelete(DeleteBehavior.Cascade);

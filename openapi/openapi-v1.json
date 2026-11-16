@@ -6962,6 +6962,117 @@
           }
         ]
       }
+    },
+    "/api/v1/notifications/mobile-devices": {
+      "get": {
+        "tags": [
+          "Mobile Push Devices"
+        ],
+        "operationId": "GetMobilePushDevices",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MobilePushDeviceResponse"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Mobile Push Devices"
+        ],
+        "operationId": "UpsertMobilePushDevice",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertMobilePushDeviceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MobilePushDeviceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications/mobile-devices/{installationId}/{platform}": {
+      "delete": {
+        "tags": [
+          "Mobile Push Devices"
+        ],
+        "operationId": "DeleteMobilePushDevice",
+        "parameters": [
+          {
+            "name": "installationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -9219,6 +9330,50 @@
           }
         }
       },
+      "MobilePushDeviceResponse": {
+        "required": [
+          "id",
+          "installationId",
+          "platform",
+          "deviceName",
+          "appVersion",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "installationId": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "deviceName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "appVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "MobileRefreshRequest": {
         "required": [
           "refreshToken",
@@ -10895,6 +11050,39 @@
           }
         }
       },
+      "UpsertMobilePushDeviceRequest": {
+        "required": [
+          "installationId",
+          "platform",
+          "expoPushToken",
+          "deviceName",
+          "appVersion"
+        ],
+        "type": "object",
+        "properties": {
+          "installationId": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "expoPushToken": {
+            "type": "string"
+          },
+          "deviceName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "appVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "UserDirectoryResponse": {
         "required": [
           "id",
@@ -11015,6 +11203,9 @@
     },
     {
       "name": "Notifications"
+    },
+    {
+      "name": "Mobile Push Devices"
     }
   ]
 }
