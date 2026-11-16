@@ -195,6 +195,54 @@ namespace FinanceControl.Bff.Persistence.Migrations
                     b.ToTable("notification_preferences", (string)null);
                 });
 
+            modelBuilder.Entity("FinanceControl.Bff.Notifications.UserMobilePushDevice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AppVersion")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeviceName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("ExpoPushToken")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("InstallationId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "UpdatedAt");
+
+                    b.HasIndex("UserId", "InstallationId", "Platform")
+                        .IsUnique();
+
+                    b.ToTable("mobile_push_devices", (string)null);
+                });
+
             modelBuilder.Entity("FinanceControl.Bff.Notifications.UserNotification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -461,6 +509,15 @@ namespace FinanceControl.Bff.Persistence.Migrations
                 });
 
             modelBuilder.Entity("FinanceControl.Bff.Notifications.NotificationPreference", b =>
+                {
+                    b.HasOne("FinanceControl.Bff.Auth.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FinanceControl.Bff.Notifications.UserMobilePushDevice", b =>
                 {
                     b.HasOne("FinanceControl.Bff.Auth.ApplicationUser", null)
                         .WithMany()

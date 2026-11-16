@@ -271,6 +271,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<NotificationPreferenceService>();
 builder.Services.AddScoped<PushSubscriptionService>();
+builder.Services.AddScoped<MobilePushDeviceService>();
 builder.Services.AddScoped<NotificationDeliveryDispatcher>();
 builder.Services.AddSingleton<WebPushClient>();
 builder.Services.AddScoped<BudgetAlertService>();

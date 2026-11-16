@@ -214,7 +214,97 @@ public static class NotificationEndpoints
             .Produces(StatusCodes.Status204NoContent)
             .ProducesValidationProblem();
 
+        var mobileDevices = notifications.MapGroup("/mobile-devices")
+            .WithTags("Mobile Push Devices");
+
+        mobileDevices.MapGet("/", async (
+                HttpContext context,
+                MobilePushDeviceService service,
+                CancellationToken cancellationToken) =>
+                Results.Ok(await service.GetAsync(
+                    AuthenticatedUser.GetId(context.User),
+                    cancellationToken)))
+            .WithName("GetMobilePushDevices")
+            .Produces<IReadOnlyList<MobilePushDeviceResponse>>();
+
+        mobileDevices.MapPost("/", async (
+                UpsertMobilePushDeviceRequest request,
+                HttpContext context,
+                MobilePushDeviceService service,
+                CancellationToken cancellationToken) =>
+            {
+                var errors = ValidateMobilePushDevice(request);
+                if (errors.Count > 0)
+                {
+                    return Results.ValidationProblem(errors);
+                }
+
+                return Results.Ok(await service.UpsertAsync(
+                    AuthenticatedUser.GetId(context.User),
+                    request,
+                    cancellationToken));
+            })
+            .WithName("UpsertMobilePushDevice")
+            .Produces<MobilePushDeviceResponse>()
+            .ProducesValidationProblem();
+
+        mobileDevices.MapDelete("/{installationId:guid}/{platform}", async (
+                Guid installationId,
+                string platform,
+                HttpContext context,
+                MobilePushDeviceService service,
+                CancellationToken cancellationToken) =>
+                await service.RemoveAsync(
+                    AuthenticatedUser.GetId(context.User),
+                    installationId.ToString("D"),
+                    platform,
+                    cancellationToken)
+                    ? Results.NoContent()
+                    : Results.NotFound())
+            .WithName("DeleteMobilePushDevice")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound);
+
         return group;
+    }
+
+    private static Dictionary<string, string[]> ValidateMobilePushDevice(
+        UpsertMobilePushDeviceRequest request)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        var installationId = request.InstallationId?.Trim();
+        if (!Guid.TryParse(installationId, out _) || (installationId?.Length ?? int.MaxValue) > 64)
+        {
+            errors["installationId"] = ["Installation id must be a UUID with at most 64 characters."];
+        }
+
+        var platform = request.Platform?.Trim().ToLowerInvariant();
+        if (platform is not ("android" or "ios"))
+        {
+            errors["platform"] = ["Platform must be android or ios."];
+        }
+
+        var expoToken = request.ExpoPushToken?.Trim();
+        if (string.IsNullOrWhiteSpace(expoToken) ||
+            expoToken.Length > 200 ||
+            !(expoToken.StartsWith("ExponentPushToken[", StringComparison.Ordinal) ||
+              expoToken.StartsWith("ExpoPushToken[", StringComparison.Ordinal)) ||
+            !expoToken.EndsWith(']'))
+        {
+            errors["expoPushToken"] = ["A valid Expo push token with at most 200 characters is required."];
+        }
+
+        if (request.DeviceName?.Trim().Length > 120)
+        {
+            errors["deviceName"] = ["Device name must contain at most 120 characters."];
+        }
+
+        if (request.AppVersion?.Trim().Length > 40)
+        {
+            errors["appVersion"] = ["App version must contain at most 40 characters."];
+        }
+
+        return errors;
     }
 
     private static Dictionary<string, string[]> ValidatePushSubscription(
