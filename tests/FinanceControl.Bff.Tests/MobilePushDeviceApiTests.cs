@@ -98,7 +98,7 @@ public sealed class MobilePushDeviceApiTests(BffApplicationFactory factory)
             {
                 installationId = "not-a-guid",
                 platform = "web",
-                expoPushToken = "not-an-expo-token"
+                expoPushToken = "ExponentPushToken[]",
             })
         };
         invalidRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);

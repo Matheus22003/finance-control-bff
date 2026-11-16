@@ -285,11 +285,7 @@ public static class NotificationEndpoints
         }
 
         var expoToken = request.ExpoPushToken?.Trim();
-        if (string.IsNullOrWhiteSpace(expoToken) ||
-            expoToken.Length > 200 ||
-            !(expoToken.StartsWith("ExponentPushToken[", StringComparison.Ordinal) ||
-              expoToken.StartsWith("ExpoPushToken[", StringComparison.Ordinal)) ||
-            !expoToken.EndsWith(']'))
+        if (!IsValidExpoPushToken(expoToken))
         {
             errors["expoPushToken"] = ["A valid Expo push token with at most 200 characters is required."];
         }
@@ -305,6 +301,27 @@ public static class NotificationEndpoints
         }
 
         return errors;
+    }
+
+    private static bool IsValidExpoPushToken(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token) || token.Length > 200 || !token.EndsWith(']'))
+        {
+            return false;
+        }
+
+        var prefix = token.StartsWith("ExponentPushToken[", StringComparison.Ordinal)
+            ? "ExponentPushToken["
+            : token.StartsWith("ExpoPushToken[", StringComparison.Ordinal)
+                ? "ExpoPushToken["
+                : null;
+        if (prefix is null || token.Length <= prefix.Length + 1)
+        {
+            return false;
+        }
+
+        var body = token[prefix.Length..^1];
+        return !string.IsNullOrWhiteSpace(body) && !body.Any(char.IsWhiteSpace);
     }
 
     private static Dictionary<string, string[]> ValidatePushSubscription(
