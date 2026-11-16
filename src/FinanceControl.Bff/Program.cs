@@ -45,12 +45,9 @@ builder.Services.AddExceptionHandler<FinanceServiceExceptionHandler>();
 builder.Services.AddExceptionHandler<DebtServiceExceptionHandler>();
 builder.Services.AddExceptionHandler<AiProviderExceptionHandler>();
 
-if (!builder.Environment.IsEnvironment("Testing"))
-{
-    var bffDatabaseConnection = builder.Configuration.GetConnectionString("BffDatabase")
-        ?? throw new InvalidOperationException("ConnectionStrings:BffDatabase must be configured.");
-    builder.Services.AddDbContext<BffDbContext>(options => options.UseNpgsql(bffDatabaseConnection));
-}
+var bffDatabaseConnection = builder.Configuration.GetConnectionString("BffDatabase")
+    ?? throw new InvalidOperationException("ConnectionStrings:BffDatabase must be configured.");
+builder.Services.AddDbContext<BffDbContext>(options => options.UseNpgsql(bffDatabaseConnection));
 builder.Services
     .AddIdentityCore<ApplicationUser>(options =>
     {
@@ -345,6 +342,12 @@ builder.Services.AddRateLimiter(options =>
     var refreshPermitLimit = builder.Configuration.GetValue(
         "RateLimiting:AuthRefreshPermitLimit",
         builder.Environment.IsEnvironment("Testing") ? 1_000 : 30);
+    if (refreshPermitLimit < 1)
+    {
+        throw new InvalidOperationException(
+            "RateLimiting:AuthRefreshPermitLimit must be greater than zero.");
+    }
+
     var aiAnalysisPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 5;
     var aiQuestionPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1_000 : 15;
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -422,7 +425,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 var app = builder.Build();
 
-if (!app.Environment.IsEnvironment("Testing"))
+if (!builder.Configuration.GetValue<bool>("Testing:SkipDatabaseInitialization"))
 {
     await using var scope = app.Services.CreateAsyncScope();
     await scope.ServiceProvider.GetRequiredService<BffDatabaseInitializer>().InitializeAsync();
