@@ -265,7 +265,60 @@ public static class NotificationEndpoints
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
+        mobileDevices.MapPost("/test", async (
+                MobilePushTestRequest request,
+                HttpContext context,
+                MobilePushDeliveryService service,
+                CancellationToken cancellationToken) =>
+            {
+                var errors = ValidateMobilePushTest(request);
+                if (errors.Count > 0)
+                {
+                    return Results.ValidationProblem(errors);
+                }
+
+                var result = await service.SendToUserAsync(
+                    AuthenticatedUser.GetId(context.User),
+                    new MobilePushMessage(
+                        request.Title.Trim(),
+                        request.Body.Trim(),
+                        request.Route?.Trim(),
+                        null,
+                        "test"),
+                    cancellationToken);
+                return !result.Configured
+                    ? Results.Problem("Mobile Push is not configured.", statusCode: StatusCodes.Status503ServiceUnavailable)
+                    : Results.Ok(result);
+            })
+            .WithName("SendMobilePushTest")
+            .Produces<MobilePushSendResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
         return group;
+    }
+
+    private static Dictionary<string, string[]> ValidateMobilePushTest(
+        MobilePushTestRequest request)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Trim().Length > 120)
+        {
+            errors["title"] = ["Title is required and must contain at most 120 characters."];
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Body) || request.Body.Trim().Length > 500)
+        {
+            errors["body"] = ["Body is required and must contain at most 500 characters."];
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Route) &&
+            (!request.Route.Trim().StartsWith('/') || request.Route.Trim().StartsWith("//")))
+        {
+            errors["route"] = ["Route must be an internal path."];
+        }
+
+        return errors;
     }
 
     private static Dictionary<string, string[]> ValidateMobilePushDevice(
