@@ -121,6 +121,13 @@ builder.Services
     .ValidateOnStart();
 
 builder.Services
+    .AddOptions<MobilePushOptions>()
+    .Bind(builder.Configuration.GetSection(MobilePushOptions.SectionName))
+    .Validate(options => !options.Enabled || options.IsConfigured,
+        "Enabled MobilePush requires an HTTPS Expo API URL and a timeout between 1 and 60 seconds.")
+    .ValidateOnStart();
+
+builder.Services
     .AddOptions<JwtOptions>()
     .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
     .ValidateDataAnnotations()
@@ -273,6 +280,11 @@ builder.Services.AddScoped<NotificationPreferenceService>();
 builder.Services.AddScoped<PushSubscriptionService>();
 builder.Services.AddScoped<MobilePushDeviceService>();
 builder.Services.AddScoped<NotificationDeliveryDispatcher>();
+builder.Services.AddScoped<MobilePushDeliveryService>();
+builder.Services.AddHttpClient(nameof(MobilePushDeliveryService), client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
 builder.Services.AddSingleton<WebPushClient>();
 builder.Services.AddScoped<BudgetAlertService>();
 builder.Services.AddScoped<GoalAlertService>();

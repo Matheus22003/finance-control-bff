@@ -111,6 +111,33 @@ public sealed class MobilePushDeviceApiTests(BffApplicationFactory factory)
         Assert.True(errors.TryGetProperty("expoPushToken", out _));
     }
 
+    [Fact]
+    public async Task MobilePushTest_RequiresAuthenticationAndRejectsExternalRoutes()
+    {
+        var unauthorized = await _client.PostAsJsonAsync(
+            "/api/v1/notifications/mobile-devices/test",
+            new { title = "Test", body = "Test", route = "/(tabs)" });
+        Assert.Equal(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+
+        var token = await AuthenticateAsync();
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/notifications/mobile-devices/test")
+        {
+            Content = JsonContent.Create(new
+            {
+                title = "Test",
+                body = "Test",
+                route = "https://example.com"
+            })
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.True(payload.RootElement.GetProperty("errors").TryGetProperty("route", out _));
+    }
+
     private async Task<string> AuthenticateAsync(string email = BffApplicationFactory.DemoEmail)
     {
         var loginResponse = await _client.PostAsJsonAsync("/api/v1/auth/login", new

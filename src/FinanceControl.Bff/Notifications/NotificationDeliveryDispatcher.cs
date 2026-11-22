@@ -13,6 +13,7 @@ public sealed class NotificationDeliveryDispatcher(
     BffDbContext dbContext,
     WebPushClient webPushClient,
     IOptions<WebPushOptions> webPushOptions,
+    MobilePushDeliveryService mobilePushDeliveryService,
     IApplicationEmailSender emailSender,
     ILogger<NotificationDeliveryDispatcher> logger)
 {
@@ -64,6 +65,19 @@ public sealed class NotificationDeliveryDispatcher(
                 await SendPushAsync(
                     notification,
                     subscriptions.Where(candidate => candidate.UserId == notification.UserId).ToList(),
+                    cancellationToken);
+            }
+
+            if (pushEnabled)
+            {
+                await mobilePushDeliveryService.SendToUserAsync(
+                    notification.UserId,
+                    new MobilePushMessage(
+                        notification.Title,
+                        notification.Message,
+                        notification.Route,
+                        notification.Id.ToString("D"),
+                        NotificationTypeCatalog.ToContractValue(notification.Type)),
                     cancellationToken);
             }
 
